@@ -82,14 +82,9 @@ def make_geometry(path):
     # 長さ方向 = X軸 (+X が前、煙突側) で組んでから、最後に回す。
     # 高さは煙突の先まで 32px = 2ブロック (ドアと同じ)。
     cubes = [
-        # --- 下回り: トロッコと同じ鉄の箱 (20x16) ---
-        box(-10, 10, 1, 10, -8, 8, "iron"),
-        box(-10.2, 10.2, 9, 10, -8.2, 8.2, "dark_iron"),  # 縁
-        *[box(x0, x0 + 4, 0, 3.5, z0, z0 + 0.6, "wheel")  # 車輪
-          for x0 in (-8, 4) for z0 in (-8.6, 8)],
-        box(-10.8, -10, 3, 5, -5, -3, "dark_iron"),  # 後ろの緩衝器
-        box(-10.8, -10, 3, 5, 3, 5, "dark_iron"),
-        box(10, 11.5, 0.5, 4, -6, 6, "dark_iron"),  # 排障器
+        # --- 下回りはバニラのトロッコそのもの (make_cart_geometry) ---
+        # トロッコの箱の中に木の床を張り、その上に機関車を載せる
+        box(-9, 9, 9, 10, -6, 6, "dark_wood"),
 
         # --- 後ろ: 石炭の積まれた木の炭水車 ---
         box(-10, -5, 10, 15, -7, 7, "plank"),
@@ -133,6 +128,49 @@ def make_geometry(path):
                     "visible_bounds_offset": [0, 1, 0],
                 },
                 "bones": [{"name": "body", "pivot": [0, 0, 0], "cubes": cubes}],
+            }
+        ],
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(geo, f, indent=2)
+
+
+# ---------- 下回り: バニラのトロッコ (geometry.minecart と同じ形) ----------
+# テクスチャはバニラの textures/entity/minecart をそのまま使う (テクスチャパックにも追従)
+def make_cart_geometry(path):
+    dy = -18.5  # バニラのアニメーションと同じ高さ補正
+    parts = [
+        ("bottom", [0, 20, 0], [90, 0, 0], [-10, 12, -1], [20, 16, 2], [0, 10]),
+        ("back", [-9, 20, 0], [0, 270, 0], [-17, 21, -1], [16, 8, 2], [0, 0]),
+        ("front", [9, 20, 0], [0, 90, 0], [1, 21, -1], [16, 8, 2], [0, 0]),
+        ("right", [0, 20, -7], [0, 180, 0], [-8, 21, -8], [16, 8, 2], [0, 0]),
+        ("left", [0, 20, 7], [0, 0, 0], [-8, 21, 6], [16, 8, 2], [0, 0]),
+    ]
+    bones = [
+        {"name": "body", "pivot": [0, 0, 0]},  # 向きのアニメーションはこの骨を回す
+        {"name": "cart", "parent": "body", "pivot": [0, 0, 0], "rotation": [0, 90, 0]},
+    ]
+    for name, pivot, rot, origin, size, uv in parts:
+        bones.append({
+            "name": name,
+            "parent": "cart",
+            "pivot": [pivot[0], pivot[1] + dy, pivot[2]],
+            "rotation": rot,
+            "cubes": [{"origin": [origin[0], origin[1] + dy, origin[2]], "size": size, "uv": uv}],
+        })
+    geo = {
+        "format_version": "1.12.0",
+        "minecraft:geometry": [
+            {
+                "description": {
+                    "identifier": "geometry.senro_locomotive_cart",
+                    "texture_width": 64,
+                    "texture_height": 32,
+                    "visible_bounds_width": 3,
+                    "visible_bounds_height": 3,
+                    "visible_bounds_offset": [0, 1, 0],
+                },
+                "bones": bones,
             }
         ],
     }
@@ -206,6 +244,7 @@ def zip_dir(zf, src, arc_prefix):
 def main():
     make_entity_texture(os.path.join(RP, "textures", "entity", "senro_steam_locomotive.png"))
     make_geometry(os.path.join(RP, "models", "entity", "steam_locomotive.geo.json"))
+    make_cart_geometry(os.path.join(RP, "models", "entity", "steam_locomotive_cart.geo.json"))
     make_icon(os.path.join(RP, "textures", "items", "steam_locomotive.png"))
     make_icon(os.path.join(RP, "textures", "items", "throttle.png"), pattern=LEVER_ICON)
     make_icon(os.path.join(RP, "pack_icon.png"), scale=8)

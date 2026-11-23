@@ -7,12 +7,15 @@
         "default": "entity_alphatest"
       },
       "textures": {
-        "default": "textures/entity/senro_steam_locomotive"
+        "default": "textures/entity/senro_steam_locomotive",
+        "cart": "textures/entity/minecart"
       },
       "geometry": {
-        "default": "geometry.senro_steam_locomotive"
+        "default": "geometry.senro_steam_locomotive",
+        "cart": "geometry.senro_locomotive_cart"
       },
       "render_controllers": [
+        "controller.render.senro_locomotive_cart",
         "controller.render.default"
       ],
       "animations": {
