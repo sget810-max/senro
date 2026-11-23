@@ -18,6 +18,7 @@ const YAW_OFFSET = 0;
 const P_BURN = "senro:burn"; // 今燃えている石炭の残りtick
 const P_RUN = "senro:running"; // 発車中かどうか
 const P_BRAKE = "senro:braking"; // 停車ボタンで止まろうとしている途中か
+// スティック入力が使えない版のときだけ使う、発車の向き
 const P_DX = "senro:dir_x";
 const P_DZ = "senro:dir_z";
 
@@ -84,18 +85,18 @@ function openMenu(player, loco) {
   const form = new ActionFormData()
     .title("汽車")
     .body(
-      `状態: ${running ? "走行中" : "停車中"}\n` +
+      `状態: ${running ? "火が入っている (運転できます)" : "火が消えている"}\n` +
         `燃料: 石炭 ${coal} 個 + 燃焼中 残り${burnSec}秒\n\n` +
+        "運転: 乗ってスティックを前に倒すと煙突の方へ、後ろに倒すと逆へ走り出します。\n" +
+        "走り出したら、石炭がある限り全速で走り続けます。走っている向きと逆に倒すとブレーキ。\n\n" +
         "石炭は、汽車に乗ってインベントリを開くと入れられます。"
     )
-    .button("発車（向いている方向へ）")
-    .button("停車")
+    .button(running ? "火を消して停車" : "火を入れる")
     .button("閉じる");
 
   form.show(player).then((res) => {
     if (res.canceled || !loco.isValid || !player.isValid) return;
-    if (res.selection === 0) start(player, loco);
-    else if (res.selection === 1) stop(player, loco);
+    if (res.selection === 0) (running ? stop : start)(player, loco);
   });
 }
 
@@ -104,26 +105,31 @@ function start(player, loco) {
     player.onScreenDisplay.setActionBar("燃料(石炭)がありません");
     return;
   }
-  const vel = loco.getVelocity();
-  if (Math.hypot(vel.x, vel.z) < 0.05) {
-    // 止まっているときはプレイヤーの向いている方向へ
-    const v = player.getViewDirection();
-    const len = Math.hypot(v.x, v.z) || 1;
-    loco.setDynamicProperty(P_DX, v.x / len);
-    loco.setDynamicProperty(P_DZ, v.z / len);
-  }
   loco.setDynamicProperty(P_RUN, true);
   loco.setDynamicProperty(P_BRAKE, false);
   try {
     loco.dimension.playSound("fire.ignite", loco.location);
   } catch {}
-  player.onScreenDisplay.setActionBar("発車！");
+  if (typeof player.inputInfo?.getMovementVector === "function") {
+    loco.setDynamicProperty(P_DX, undefined);
+    loco.setDynamicProperty(P_DZ, undefined);
+    player.onScreenDisplay.setActionBar("火が入りました。スティックを前後に倒すと走ります");
+  } else {
+    // この版ではスティック入力が読めないので、向いている方向へ発車する
+    const v = player.getViewDirection();
+    const len = Math.hypot(v.x, v.z) || 1;
+    loco.setDynamicProperty(P_DX, v.x / len);
+    loco.setDynamicProperty(P_DZ, v.z / len);
+    player.onScreenDisplay.setActionBar("発車！ (この版ではスティック操作が使えないため、向いている方向へ)");
+  }
 }
 
 function stop(player, loco) {
   loco.setDynamicProperty(P_RUN, false);
+  loco.setDynamicProperty(P_DX, undefined);
+  loco.setDynamicProperty(P_DZ, undefined);
   loco.setDynamicProperty(P_BRAKE, true);
-  player.onScreenDisplay.setActionBar("停車します");
+  player.onScreenDisplay.setActionBar("火を消して停車します");
 }
 
 // 運転レバーを使う → 乗っている汽車のメニュー
@@ -181,70 +187,100 @@ system.runInterval(() => {
   }
 }, 1);
 
+// 乗っている人のスティック入力: 前 = 1, 後ろ = -1, なし = 0
+function riderInput(loco) {
+  for (const p of riderPlayers(loco)) {
+    let v;
+    try {
+      v = p.inputInfo?.getMovementVector?.();
+    } catch {}
+    if (!v) continue;
+    if (v.y > 0.3) return 1;
+    if (v.y < -0.3) return -1;
+  }
+  return 0;
+}
+
+// 汽車の前 (煙突の方) の向き
+function frontDir(loco) {
+  const yaw = (((loco.getProperty("senro:yaw") ?? 0) - YAW_OFFSET) * Math.PI) / 180;
+  return { x: -Math.sin(yaw), z: Math.cos(yaw) };
+}
+
+function brakeTrain(cars, loco, locoVel) {
+  for (const car of cars) {
+    const v = car === loco ? locoVel : car.getVelocity();
+    const s = Math.hypot(v.x, v.z);
+    if (s < 0.01) continue;
+    const b = Math.min(BRAKE, s * 0.5); // 行き過ぎて逆走しないよう控えめに
+    car.applyImpulse({ x: (-v.x / s) * b, y: 0, z: (-v.z / s) * b });
+  }
+}
+
 function driveLoco(loco, tick) {
   const vel = loco.getVelocity();
   const speed = Math.hypot(vel.x, vel.z);
 
   updateFacing(loco, vel, speed);
 
-  let dx, dz;
-  if (speed > 0.02) {
-    dx = vel.x / speed;
-    dz = vel.z / speed;
-  } else {
-    dx = loco.getDynamicProperty(P_DX) ?? 0;
-    dz = loco.getDynamicProperty(P_DZ) ?? 0;
-  }
-
   const running = loco.getDynamicProperty(P_RUN) === true;
   if (!running) {
-    // 「停車」を押したときだけ、止まるまでブレーキをかける。
-    // それ以外(手で押す・坂を下るなど)は普通のトロッコと同じに動く
+    // 「火を消して停車」のときだけ、止まるまでブレーキ。石炭切れのときは惰性で止まる
     if (loco.getDynamicProperty(P_BRAKE) === true) {
-      if (speed > 0.03) {
-        // 編成全体にブレーキ
-        for (const car of getTrain(loco).cars) {
-          const v = car === loco ? vel : car.getVelocity();
-          const s = Math.hypot(v.x, v.z);
-          if (s < 0.01) continue;
-          const b = Math.min(BRAKE, s * 0.5); // 行き過ぎて逆走しないよう控えめに
-          car.applyImpulse({ x: (-v.x / s) * b, y: 0, z: (-v.z / s) * b });
-        }
-      } else {
-        loco.setDynamicProperty(P_BRAKE, false);
-      }
+      if (speed > 0.03) brakeTrain(getTrain(loco).cars, loco, vel);
+      else loco.setDynamicProperty(P_BRAKE, false);
     }
     return;
   }
 
-  // 燃料
+  const train = getTrain(loco).cars;
+  const front = frontDir(loco);
+  const input = riderInput(loco);
+
+  // 進む向き: 走っていればその向き、止まっていればスティックの向き
+  let dx, dz;
+  if (speed > 0.02) {
+    dx = vel.x / speed;
+    dz = vel.z / speed;
+    const along = dx * front.x + dz * front.z >= 0 ? 1 : -1; // 前進中なら 1、後退中なら -1
+    if (input !== 0 && input !== along) {
+      // 走っている向きと逆に倒した → ブレーキ (止まったら逆向きに走り出す)
+      brakeTrain(train, loco, vel);
+      return;
+    }
+  } else if (input !== 0) {
+    dx = front.x * input;
+    dz = front.z * input;
+  } else if (loco.getDynamicProperty(P_DX) !== undefined) {
+    dx = loco.getDynamicProperty(P_DX); // スティック入力が使えない版の発車
+    dz = loco.getDynamicProperty(P_DZ);
+  } else {
+    return; // 止まっていて入力なし: 待機 (燃料も減らない)
+  }
+
+  // 燃料 (力をかけている間だけ減る)
   let burn = loco.getDynamicProperty(P_BURN) ?? 0;
   if (burn <= 0) {
     if (!burnOne(loco)) {
       loco.setDynamicProperty(P_RUN, false);
-      tell(loco, "燃料切れ！停車します");
+      tell(loco, "石炭切れ！惰性で止まります");
       return;
     }
     burn = loco.getDynamicProperty(P_BURN);
   }
   loco.setDynamicProperty(P_BURN, burn - 1);
 
-  if (speed > 0.02) {
-    loco.setDynamicProperty(P_DX, dx);
-    loco.setDynamicProperty(P_DZ, dz);
-  }
-  // 編成全体を押す (つないだ車両が多くても加速が落ちないように、各車両に力をかける)
-  const train = getTrain(loco).cars;
+  // パワードレールと同じように、走っている向きへ全速まで押し続ける
   const maxSpeed = train.every((c) => c.typeId === loco.typeId) ? MAX_SPEED : VANILLA_MAX_SPEED;
-  if (speed < maxSpeed && (dx !== 0 || dz !== 0)) {
+  if (speed < maxSpeed) {
     const push = Math.min(ACCEL, maxSpeed - speed + 0.01);
     loco.applyImpulse({ x: dx * push, y: 0, z: dz * push });
   }
+  // 編成の車両も押す (汽車と同じ向きに動いているものだけ。止まっている車両は連結で引っぱられる)
   for (const car of train) {
     if (car === loco) continue;
     const v = car.getVelocity();
     const s = Math.hypot(v.x, v.z);
-    // 汽車と同じ向きに動いている車両だけ押す (止まっている車両は連結で引っぱられる)
     if (s < 0.02 || s >= maxSpeed) continue;
     if ((v.x * dx + v.z * dz) / s < 0) continue;
     const push = Math.min(ACCEL, maxSpeed - s + 0.01);
@@ -256,9 +292,9 @@ function driveLoco(loco, tick) {
     const l = loco.location;
     try {
       loco.dimension.spawnParticle("minecraft:basic_smoke_particle", {
-        x: l.x + dx * 0.3,
-        y: l.y + 1.35,
-        z: l.z + dz * 0.3,
+        x: l.x + front.x * 0.3,
+        y: l.y + 2.0,
+        z: l.z + front.z * 0.3,
       });
     } catch {}
   }
@@ -301,8 +337,8 @@ function updateFacing(loco, vel, speed) {
   if (speed > 0.02) {
     // 進行方向 (マイクラの向き: 南=0, 西=90, 北=180, 東=-90)
     const moveYaw = wrapDeg((Math.atan2(-vel.x, vel.z) * 180) / Math.PI + YAW_OFFSET);
-    // 発車中は煙突を進行方向へ。押されて動いているだけなら前後はそのまま
-    target = loco.getDynamicProperty(P_RUN) === true ? moveYaw : nearerAxis(cur, moveYaw);
+    // 前後は入れ替えない (後退しても煙突は前のまま)。レールの向きにだけ合わせる
+    target = nearerAxis(cur, moveYaw);
   } else {
     const axis = railAxis(loco);
     if (axis === undefined) return;
