@@ -11,7 +11,7 @@
         "planks": "textures/blocks/planks_oak",
         "iron": "textures/blocks/iron_block",
         "coal": "textures/blocks/coal_block",
-        "gold": "textures/blocks/gold_block",
+        "carpet": "textures/blocks/wool_colored_red",
         "lamp": "textures/blocks/redstone_lamp_on"
       },
       "geometry": {
@@ -19,7 +19,7 @@
         "planks": "geometry.senro_booster_planks",
         "iron": "geometry.senro_booster_iron",
         "coal": "geometry.senro_booster_coal",
-        "gold": "geometry.senro_booster_gold",
+        "carpet": "geometry.senro_booster_carpet",
         "lamp": "geometry.senro_booster_lamp"
       },
       "animations": {
@@ -35,7 +35,7 @@
         "controller.render.senro_part_planks",
         "controller.render.senro_part_iron",
         "controller.render.senro_part_coal",
-        "controller.render.senro_part_gold",
+        "controller.render.senro_part_carpet",
         "controller.render.senro_part_lamp"
       ]
     }

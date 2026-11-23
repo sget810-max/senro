@@ -88,6 +88,17 @@
       "textures": [
         "Texture.gold"
       ]
+    },
+    "controller.render.senro_part_carpet": {
+      "geometry": "Geometry.carpet",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.carpet"
+      ]
     }
   }
 }
