@@ -1,10 +1,13 @@
-"""汽車のモデル・テクスチャを生成し、dist/senro.mcaddon を作る。
+"""汽車のモデル・アイコンを生成し、dist/senro.mcaddon を作る。
 
 使い方: python3 tools/build.py
+
+見た目はすべてバニラのテクスチャ(トロッコ・オークの板材・原木・かまど・石炭ブロック・
+レッドストーンランプ)をそのまま使う。テクスチャパックを入れていればそれに合わせて変わる。
+テクスチャごとに別のジオメトリ＋レンダーコントローラーで描く。
 """
 import json
 import os
-import random
 import zipfile
 
 from PIL import Image
@@ -13,130 +16,108 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BP = os.path.join(ROOT, "packs", "BP")
 RP = os.path.join(ROOT, "packs", "RP")
 
-# ---------- テクスチャ (64x64 の中に 8x8 の素材マスを並べる) ----------
-SWATCH = 8
-PALETTE = {
-    "iron": (168, 168, 172),  # トロッコと同じ明るい鉄
-    "dark_iron": (72, 74, 80),
-    "plank": (160, 114, 64),  # 木の板
-    "dark_wood": (98, 66, 36),
-    "coal": (34, 34, 36),
-    "lamp": (255, 228, 130),
-    "wheel": (48, 48, 54),
-    "glass": (70, 92, 110),
+# 使うバニラのテクスチャ (キー → パス)
+TEXTURES = {
+    "planks": "textures/blocks/planks_oak",
+    "log": "textures/blocks/log_oak",
+    "furnace_side": "textures/blocks/furnace_side",
+    "furnace_front": "textures/blocks/furnace_front_on",
+    "furnace_top": "textures/blocks/furnace_top",
+    "coal": "textures/blocks/coal_block",
+    "lamp": "textures/blocks/redstone_lamp_on",
 }
-SLOT = {name: (i % 8, i // 8) for i, name in enumerate(PALETTE)}
 
 
-def shade(c, k):
-    return tuple(max(0, min(255, int(v * k))) for v in c) + (255,)
+def box(x0, x1, y0, y1, z0, z1):
+    return (x0, x1, y0, y1, z0, z1)
 
 
-def swatch_pixel(name, x, y, rnd):
-    base = PALETTE[name]
-    n = rnd.uniform(-0.05, 0.05)
-    if name in ("iron", "dark_iron"):
-        # 縁を暗く、四隅にリベット
-        if (x, y) in ((1, 1), (6, 1), (1, 6), (6, 6)):
-            return shade(base, 1.25)
-        if x in (0, 7) or y in (0, 7):
-            return shade(base, 0.78)
-        return shade(base, 1.0 + n)
-    if name in ("plank", "dark_wood"):
-        # 板の継ぎ目(横線)と木目
-        if y in (3, 7):
-            return shade(base, 0.7)
-        if (x + y * 3) % 7 == 0:
-            return shade(base, 0.88)
-        return shade(base, 1.0 + n)
-    if name == "coal":
-        return shade(base, 1.6 if rnd.random() < 0.15 else 1.0 + n)
-    if x in (0, 7) or y in (0, 7):
-        return shade(base, 0.8)
-    return shade(base, 1.0 + n)
+# 機関車の部品。長さ方向 = X軸 (+X が前) で書く。
+# トロッコの箱: 外側 X ±10, Z ±8, 縁の上端 y=10.5、内側 X ±8, Z ±6。
+# 部品どうしは必ず面で接するように置いて、隙間を作らない。
+PARTS = {
+    "planks": [
+        box(-8, 8, 9.5, 10.5, -6, 6),  # トロッコの箱にはめた床 (縁と同じ高さ)
+        box(-10, -6, 10.5, 15, -7, 7),  # 後ろ: 炭水車
+        box(-6, 2, 10.5, 14, -8, -7),  # 運転室の腰板 (左右)
+        box(-6, 2, 10.5, 14, 7, 8),
+        box(-7, 3, 28, 30, -9, 9),  # 運転室の屋根
+    ],
+    "log": [
+        box(x0, x0 + 1.5, 14, 28, z0, z0 + 1.5)  # 運転室の柱 4本 (腰板の上〜屋根の下)
+        for x0 in (-6, 0.5) for z0 in (-8, 6.5)
+    ],
+    "coal": [
+        box(-9.5, -6.5, 15, 16, -6, 6),  # 炭水車に積んだ石炭
+        box(5, 8, 20.5, 29, -1.5, 1.5),  # 煙突
+        box(4, 9, 29, 31, -2.5, 2.5),  # 煙突の先
+    ],
+    # 前: かまどをボイラーにする (運転室側に火の見える焚き口)
+    "furnace_side": [box(2, 10, 10.5, 20.5, -6, 6)],
+    "furnace_front": [box(1.98, 1.98, 10.5, 20.5, -6, 6)],  # 焚き口 (厚さ0の板を貼る)
+    "furnace_top": [box(2, 10, 20.52, 20.52, -6, 6)],
+    "lamp": [box(10, 11.5, 16, 19, -1.5, 1.5)],  # 前照灯
+}
 
 
-def make_entity_texture(path):
-    rnd = random.Random(1)
-    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-    for name in PALETTE:
-        sx, sy = SLOT[name]
-        for y in range(SWATCH):
-            for x in range(SWATCH):
-                img.putpixel((sx * SWATCH + x, sy * SWATCH + y), swatch_pixel(name, x, y, rnd))
-    img.save(path)
+def to_cube(b):
+    """X長手の箱を、トロッコの進行方向(モデルのZ軸)に90度回して、面ごとのUVを付ける。"""
+    x0, x1, y0, y1, z0, z1 = b
+    # 前 +X → -Z (北向き = エンティティの正面)
+    nx0, nx1, nz0, nz1 = z0, z1, -x1, -x0
+    w, h, d = nx1 - nx0, y1 - y0, nz1 - nz0
+
+    def face(a, b_):
+        # テクスチャ(16x16)の真ん中から、面の大きさぶん切り取る (等倍で貼る)
+        a2, b2 = min(a, 16), min(b_, 16)
+        return {"uv": [(16 - a2) / 2, (16 - b2) / 2], "uv_size": [a2, b2]}
+
+    faces = {}
+    if w and h:
+        faces["north"] = face(w, h)
+        faces["south"] = face(w, h)
+    if d and h:
+        faces["east"] = face(d, h)
+        faces["west"] = face(d, h)
+    if w and d:
+        faces["up"] = face(w, d)
+        faces["down"] = face(w, d)
+    return {"origin": [nx0, y0, nz0], "size": [w, h, d], "uv": faces}
 
 
-def cube(origin, size, color):
-    sx, sy = SLOT[color]
-    uv = {"uv": [sx * SWATCH, sy * SWATCH], "uv_size": [SWATCH, SWATCH]}
-    faces = {f: dict(uv) for f in ("north", "south", "east", "west", "up", "down")}
-    return {"origin": origin, "size": size, "uv": faces}
-
-
-def box(x0, x1, y0, y1, z0, z1, color):
-    return cube([x0, y0, z0], [x1 - x0, y1 - y0, z1 - z0], color)
-
-
-def make_geometry(path):
-    # 長さ方向 = X軸 (+X が前、煙突側) で組んでから、最後に回す。
-    # 高さは煙突の先まで 32px = 2ブロック (ドアと同じ)。
-    cubes = [
-        # --- 下回りはバニラのトロッコそのもの (make_cart_geometry) ---
-        # トロッコの箱の中に木の床を張り、その上に機関車を載せる
-        box(-9, 9, 9, 10, -6, 6, "dark_wood"),
-
-        # --- 後ろ: 石炭の積まれた木の炭水車 ---
-        box(-10, -5, 10, 15, -7, 7, "plank"),
-        box(-9.5, -5.5, 15, 16, -6.5, 6.5, "coal"),
-
-        # --- 真ん中: 運転室 (横が開いていて、乗っても前が見える) ---
-        box(-5, 3, 10, 15, -7.5, -6.5, "plank"),  # 腰板
-        box(-5, 3, 10, 15, 6.5, 7.5, "plank"),
-        *[box(x0, x0 + 1, 15, 28, z0, z0 + 1, "dark_wood")  # 柱
-          for x0 in (-5, 2) for z0 in (-7.5, 6.5)],
-        box(-5.5, 3.5, 28, 29, -8, 8, "dark_iron"),  # 鉄の屋根
-        box(-5, 3, 29, 29.5, -6.5, 6.5, "dark_iron"),
-
-        # --- 前: 木の板を巻いて鉄の帯で締めたボイラー ---
-        box(3, 9.5, 10, 19, -4.5, 4.5, "plank"),
-        box(3, 9.5, 19, 20, -3.5, 3.5, "plank"),  # 丸みの代わり
-        box(4, 5, 9.9, 20.1, -4.6, 4.6, "dark_iron"),
-        box(7, 8, 9.9, 20.1, -4.6, 4.6, "dark_iron"),
-        box(9.5, 10.5, 10, 19, -4.5, 4.5, "dark_iron"),  # 煙室
-        box(3.5, 5.5, 20, 22, -1.5, 1.5, "iron"),  # 蒸気ドーム
-        box(6, 8.5, 20, 29, -1.25, 1.25, "dark_iron"),  # 煙突
-        box(5.25, 9.25, 29, 32, -2, 2, "dark_iron"),
-        box(10.5, 11.5, 19, 22, -1.5, 1.5, "lamp"),  # ランプ
-        box(10.4, 11.6, 22, 22.5, -1.7, 1.7, "dark_iron"),
-    ]
-    # トロッコの進行方向はモデルのZ軸なので90度回す (前 +X → -Z、北向き = エンティティの正面)
-    for c in cubes:
-        (x, y, z), (w, h, d) = c["origin"], c["size"]
-        c["origin"] = [z, y, -(x + w)]
-        c["size"] = [d, h, w]
-    geo = {
+def geometry_file(identifier, tex_w, tex_h, bones):
+    return {
         "format_version": "1.12.0",
         "minecraft:geometry": [
             {
                 "description": {
-                    "identifier": "geometry.senro_steam_locomotive",
-                    "texture_width": 64,
-                    "texture_height": 64,
+                    "identifier": identifier,
+                    "texture_width": tex_w,
+                    "texture_height": tex_h,
                     "visible_bounds_width": 3,
                     "visible_bounds_height": 3,
                     "visible_bounds_offset": [0, 1, 0],
                 },
-                "bones": [{"name": "body", "pivot": [0, 0, 0], "cubes": cubes}],
+                "bones": bones,
             }
         ],
     }
+
+
+def make_part_geometries(path):
+    geos = []
+    for key, boxes in PARTS.items():
+        geo = geometry_file(
+            f"geometry.senro_loco_{key}", 16, 16,
+            # 向きのアニメーションは "body" の骨を回す
+            [{"name": "body", "pivot": [0, 0, 0], "cubes": [to_cube(b) for b in boxes]}],
+        )
+        geos += geo["minecraft:geometry"]
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(geo, f, indent=2)
+        json.dump({"format_version": "1.12.0", "minecraft:geometry": geos}, f, indent=2)
 
 
 # ---------- 下回り: バニラのトロッコ (geometry.minecart と同じ形) ----------
-# テクスチャはバニラの textures/entity/minecart をそのまま使う (テクスチャパックにも追従)
 def make_cart_geometry(path):
     dy = -18.5  # バニラのアニメーションと同じ高さ補正
     parts = [
@@ -147,7 +128,7 @@ def make_cart_geometry(path):
         ("left", [0, 20, 7], [0, 0, 0], [-8, 21, 6], [16, 8, 2], [0, 0]),
     ]
     bones = [
-        {"name": "body", "pivot": [0, 0, 0]},  # 向きのアニメーションはこの骨を回す
+        {"name": "body", "pivot": [0, 0, 0]},
         {"name": "cart", "parent": "body", "pivot": [0, 0, 0], "rotation": [0, 90, 0]},
     ]
     for name, pivot, rot, origin, size, uv in parts:
@@ -158,66 +139,92 @@ def make_cart_geometry(path):
             "rotation": rot,
             "cubes": [{"origin": [origin[0], origin[1] + dy, origin[2]], "size": size, "uv": uv}],
         })
-    geo = {
-        "format_version": "1.12.0",
-        "minecraft:geometry": [
-            {
-                "description": {
-                    "identifier": "geometry.senro_locomotive_cart",
-                    "texture_width": 64,
-                    "texture_height": 32,
-                    "visible_bounds_width": 3,
-                    "visible_bounds_height": 3,
-                    "visible_bounds_offset": [0, 1, 0],
-                },
-                "bones": bones,
-            }
-        ],
-    }
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(geo, f, indent=2)
+        json.dump(geometry_file("geometry.senro_locomotive_cart", 64, 32, bones), f, indent=2)
 
 
-# ---------- アイテムアイコン (16x16 ドット絵) ----------
+def make_client_files():
+    textures = {"cart": "textures/entity/minecart"}
+    geometry = {"cart": "geometry.senro_locomotive_cart"}
+    controllers = {
+        "controller.render.senro_loco_cart": {
+            "geometry": "Geometry.cart",
+            "materials": [{"*": "Material.default"}],
+            "textures": ["Texture.cart"],
+        }
+    }
+    for key, path in TEXTURES.items():
+        textures[key] = path
+        geometry[key] = f"geometry.senro_loco_{key}"
+        controllers[f"controller.render.senro_loco_{key}"] = {
+            "geometry": f"Geometry.{key}",
+            "materials": [{"*": "Material.default"}],
+            "textures": [f"Texture.{key}"],
+        }
+    entity = {
+        "format_version": "1.10.0",
+        "minecraft:client_entity": {
+            "description": {
+                "identifier": "senro:steam_locomotive",
+                "materials": {"default": "entity_alphatest"},
+                "textures": textures,
+                "geometry": geometry,
+                "animations": {"yaw": "animation.senro_steam_locomotive.yaw"},
+                "scripts": {"animate": ["yaw"]},
+                "render_controllers": list(controllers),
+            }
+        },
+    }
+    with open(os.path.join(RP, "entity", "steam_locomotive.entity.json"), "w", encoding="utf-8") as f:
+        json.dump(entity, f, indent=2, ensure_ascii=False)
+    with open(os.path.join(RP, "render_controllers", "senro_locomotive.render_controllers.json"), "w", encoding="utf-8") as f:
+        json.dump({"format_version": "1.8.0", "render_controllers": controllers}, f, indent=2)
+
+
+# ---------- アイテムアイコン (16x16 ドット絵、右が前) ----------
+COLORS = {
+    "I": (166, 166, 170),  # トロッコの鉄
+    "D": (84, 84, 90),  # 暗い鉄
+    "P": (162, 130, 78),  # 板材
+    "L": (104, 82, 50),  # 原木
+    "F": (118, 118, 118),  # かまど
+    "f": (230, 140, 40),  # 火
+    "C": (30, 30, 32),  # 石炭
+    "Y": (250, 214, 120),  # ランプ
+}
 ICON = [
-    "...........KK...",
-    "...KKKKKKK.KK...",
-    "...D.....D.KK...",
-    "...D.....D.KK...",
-    "...D.....D.KK...",
-    "...D.....D.KK.L.",
-    "...D.....DPKPKL.",
-    ".CCPPPPPPPPKPKD.",
-    ".PPPPPPPPPPKPKD.",
-    ".PPPPPPPPPPKPKD.",
-    "KKKKKKKKKKKKKKKK",
+    ".........CCCC...",
+    "..PPPPPPP.CC....",
+    "..PPPPPPP.CC....",
+    "...L...L..CC....",
+    "...L...L..CC....",
+    "...L...LFFFFFF..",
+    "...L...LfFFFFFY.",
+    ".CCL...LfFFFFFY.",
+    ".PPPPPPPFFFFFF..",
+    ".PPPPPPPFFFFFF..",
+    "DDDDDDDDDDDDDDDD",
     ".IIIIIIIIIIIIII.",
     ".IIIIIIIIIIIIII.",
     ".IIIIIIIIIIIIII.",
-    "..WW.......WW...",
+    "..DD........DD..",
     "................",
 ]
-ICON_COLORS = {
-    "K": PALETTE["dark_iron"], "I": PALETTE["iron"], "P": PALETTE["plank"],
-    "D": PALETTE["dark_wood"], "C": PALETTE["coal"], "L": PALETTE["lamp"],
-    "W": PALETTE["wheel"],
-}
-
 LEVER_ICON = [
     "................",
-    "..........LL....",
-    ".........LLLL...",
-    ".........LLLL...",
-    "..........LL....",
-    ".........KK.....",
-    "........KK......",
-    ".......KK.......",
-    "......KK........",
-    ".....KK.........",
-    "...KKKKKKKK.....",
-    "...KPPPPPPK.....",
-    "...KPPPPPPK.....",
-    "...KKKKKKKK.....",
+    "..........YY....",
+    ".........YYYY...",
+    ".........YYYY...",
+    "..........YY....",
+    ".........DD.....",
+    "........DD......",
+    ".......DD.......",
+    "......DD........",
+    ".....DD.........",
+    "...DDDDDDDD.....",
+    "...DPPPPPPD.....",
+    "...DPPPPPPD.....",
+    "...DDDDDDDD.....",
     "................",
     "................",
 ]
@@ -227,8 +234,8 @@ def make_icon(path, scale=1, pattern=ICON):
     img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     for y, row in enumerate(pattern):
         for x, ch in enumerate(row):
-            if ch in ICON_COLORS:
-                img.putpixel((x, y), ICON_COLORS[ch] + (255,))
+            if ch in COLORS:
+                img.putpixel((x, y), COLORS[ch] + (255,))
     if scale != 1:
         img = img.resize((16 * scale, 16 * scale), Image.NEAREST)
     img.save(path)
@@ -242,9 +249,9 @@ def zip_dir(zf, src, arc_prefix):
 
 
 def main():
-    make_entity_texture(os.path.join(RP, "textures", "entity", "senro_steam_locomotive.png"))
-    make_geometry(os.path.join(RP, "models", "entity", "steam_locomotive.geo.json"))
+    make_part_geometries(os.path.join(RP, "models", "entity", "steam_locomotive.geo.json"))
     make_cart_geometry(os.path.join(RP, "models", "entity", "steam_locomotive_cart.geo.json"))
+    make_client_files()
     make_icon(os.path.join(RP, "textures", "items", "steam_locomotive.png"))
     make_icon(os.path.join(RP, "textures", "items", "throttle.png"), pattern=LEVER_ICON)
     make_icon(os.path.join(RP, "pack_icon.png"), scale=8)

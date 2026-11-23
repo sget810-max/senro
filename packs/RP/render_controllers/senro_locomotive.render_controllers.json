@@ -1,10 +1,93 @@
 {
   "format_version": "1.8.0",
   "render_controllers": {
-    "controller.render.senro_locomotive_cart": {
+    "controller.render.senro_loco_cart": {
       "geometry": "Geometry.cart",
-      "materials": [{ "*": "Material.default" }],
-      "textures": ["Texture.cart"]
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.cart"
+      ]
+    },
+    "controller.render.senro_loco_planks": {
+      "geometry": "Geometry.planks",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.planks"
+      ]
+    },
+    "controller.render.senro_loco_log": {
+      "geometry": "Geometry.log",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.log"
+      ]
+    },
+    "controller.render.senro_loco_furnace_side": {
+      "geometry": "Geometry.furnace_side",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.furnace_side"
+      ]
+    },
+    "controller.render.senro_loco_furnace_front": {
+      "geometry": "Geometry.furnace_front",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.furnace_front"
+      ]
+    },
+    "controller.render.senro_loco_furnace_top": {
+      "geometry": "Geometry.furnace_top",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.furnace_top"
+      ]
+    },
+    "controller.render.senro_loco_coal": {
+      "geometry": "Geometry.coal",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.coal"
+      ]
+    },
+    "controller.render.senro_loco_lamp": {
+      "geometry": "Geometry.lamp",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.lamp"
+      ]
     }
   }
 }
