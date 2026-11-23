@@ -1,0 +1,14 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "senro:coupling_link",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/minecart" },
+      "geometry": { "default": "geometry.senro_coupling_link" },
+      "animations": { "pose": "animation.senro_coupling_link.pose" },
+      "scripts": { "animate": ["pose"] },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

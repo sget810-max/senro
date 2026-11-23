@@ -1,0 +1,14 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.senro_coupling_link.pose": {
+      "loop": true,
+      "bones": {
+        "rod": {
+          "rotation": ["q.property('senro:pitch')", "q.property('senro:yaw')", 0],
+          "scale": [1, 1, "q.property('senro:len')"]
+        }
+      }
+    }
+  }
+}

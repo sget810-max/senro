@@ -1,5 +1,6 @@
 import { world, system, ItemStack } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
+import { getTrain } from "./coupling.js";
 
 // ===== 設定 =====
 const LOCO_ID = "senro:steam_locomotive";
@@ -7,6 +8,7 @@ const ITEM_ID = "senro:steam_locomotive";
 const THROTTLE_ID = "senro:throttle";
 const FUEL_ITEMS = { "minecraft:coal": 3600, "minecraft:charcoal": 3600 }; // 1個 = 3600tick (3分)
 const MAX_SPEED = 0.6; // ブロック/tick。通常トロッコ(0.4)の1.5倍
+const VANILLA_MAX_SPEED = 0.4; // バニラのトロッコをつないでいるときはこれ以上出ない
 const ACCEL = 0.05; // 1tickあたりの加速
 const BRAKE = 0.04; // 1tickあたりの減速
 const DIMENSIONS = ["overworld", "nether", "the_end"];
@@ -200,8 +202,14 @@ function driveLoco(loco, tick) {
     // それ以外(手で押す・坂を下るなど)は普通のトロッコと同じに動く
     if (loco.getDynamicProperty(P_BRAKE) === true) {
       if (speed > 0.03) {
-        const b = Math.min(BRAKE, speed * 0.5); // 行き過ぎて逆走しないよう控えめに
-        loco.applyImpulse({ x: -dx * b, y: 0, z: -dz * b });
+        // 編成全体にブレーキ
+        for (const car of getTrain(loco).cars) {
+          const v = car === loco ? vel : car.getVelocity();
+          const s = Math.hypot(v.x, v.z);
+          if (s < 0.01) continue;
+          const b = Math.min(BRAKE, s * 0.5); // 行き過ぎて逆走しないよう控えめに
+          car.applyImpulse({ x: (-v.x / s) * b, y: 0, z: (-v.z / s) * b });
+        }
       } else {
         loco.setDynamicProperty(P_BRAKE, false);
       }
@@ -225,9 +233,22 @@ function driveLoco(loco, tick) {
     loco.setDynamicProperty(P_DX, dx);
     loco.setDynamicProperty(P_DZ, dz);
   }
-  if (speed < MAX_SPEED && (dx !== 0 || dz !== 0)) {
-    const push = Math.min(ACCEL, MAX_SPEED - speed + 0.01);
+  // 編成全体を押す (つないだ車両が多くても加速が落ちないように、各車両に力をかける)
+  const train = getTrain(loco).cars;
+  const maxSpeed = train.every((c) => c.typeId === loco.typeId) ? MAX_SPEED : VANILLA_MAX_SPEED;
+  if (speed < maxSpeed && (dx !== 0 || dz !== 0)) {
+    const push = Math.min(ACCEL, maxSpeed - speed + 0.01);
     loco.applyImpulse({ x: dx * push, y: 0, z: dz * push });
+  }
+  for (const car of train) {
+    if (car === loco) continue;
+    const v = car.getVelocity();
+    const s = Math.hypot(v.x, v.z);
+    // 汽車と同じ向きに動いている車両だけ押す (止まっている車両は連結で引っぱられる)
+    if (s < 0.02 || s >= maxSpeed) continue;
+    if ((v.x * dx + v.z * dz) / s < 0) continue;
+    const push = Math.min(ACCEL, maxSpeed - s + 0.01);
+    car.applyImpulse({ x: (v.x / s) * push, y: 0, z: (v.z / s) * push });
   }
 
   // 煙突の煙

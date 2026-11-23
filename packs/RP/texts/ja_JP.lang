@@ -1,3 +1,5 @@
 entity.senro:steam_locomotive.name=汽車
 item.senro:steam_locomotive=汽車
 item.senro:throttle=運転レバー
+item.senro:coupler=連結器
+entity.senro:coupling_link.name=連結

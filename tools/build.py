@@ -274,6 +274,25 @@ LEVER_ICON = [
     "................",
 ]
 
+COUPLER_ICON = [
+    "................",
+    "................",
+    "..DDDD..........",
+    ".DIIIID.........",
+    ".ID..DI.........",
+    ".ID..DIDDDD.....",
+    ".DIIIIIIIIID....",
+    "..DDDDIDDDDI....",
+    "......ID..DI....",
+    "......DIIIID....",
+    ".......DDDDIDDD.",
+    "..........DIIIID",
+    "..........ID..DI",
+    "..........DIIIID",
+    "...........DDDD.",
+    "................",
+]
+
 
 def make_icon(path, scale=1, pattern=ICON):
     img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
@@ -301,6 +320,7 @@ def main():
     make_client_files()
     make_icon(os.path.join(RP, "textures", "items", "steam_locomotive.png"))
     make_icon(os.path.join(RP, "textures", "items", "throttle.png"), pattern=LEVER_ICON)
+    make_icon(os.path.join(RP, "textures", "items", "coupler.png"), pattern=COUPLER_ICON)
     make_icon(os.path.join(RP, "pack_icon.png"), scale=8)
     make_icon(os.path.join(BP, "pack_icon.png"), scale=8)
 

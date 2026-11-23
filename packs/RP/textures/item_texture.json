@@ -7,6 +7,9 @@
     },
     "senro_throttle": {
       "textures": "textures/items/throttle"
+    },
+    "senro_coupler": {
+      "textures": "textures/items/coupler"
     }
   }
 }
