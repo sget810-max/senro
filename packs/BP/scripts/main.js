@@ -1,6 +1,6 @@
 import { world, system, ItemStack } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
-import { getTrain, CART_TYPES, BOOSTER_ID } from "./coupling.js";
+import { getTrain, getLinks, CART_TYPES, BOOSTER_ID } from "./coupling.js";
 
 // ===== 設定 =====
 const LOCO_ID = "senro:steam_locomotive";
@@ -69,8 +69,13 @@ function riderPlayers(loco) {
 }
 
 // 編成のどの車両に乗っている人にも知らせる
+const lastTell = new Map(); // playerId -> tick (スピードメーターで上書きしないため)
 function tell(loco, msg) {
-  for (const car of getTrain(loco).cars) for (const p of riderPlayers(car)) p.onScreenDisplay.setActionBar(msg);
+  for (const car of getTrain(loco).cars)
+    for (const p of riderPlayers(car)) {
+      p.onScreenDisplay.setActionBar(msg);
+      lastTell.set(p.id, system.currentTick);
+    }
 }
 
 // ===== 運転メニュー =====
@@ -209,6 +214,41 @@ system.runInterval(() => {
   }
 }, 1);
 
+// ===== スピードメーター: 汽車の編成に乗っている人に今の速さを表示 =====
+const SPEED_LABEL = {
+  "senro:speed_normal": "1倍",
+  "senro:speed_15": "1.5倍",
+  "senro:speed_20": "2倍 (補助機関車)",
+};
+system.runInterval(() => {
+  const now = system.currentTick;
+  for (const dimId of DIMENSIONS) {
+    let locos;
+    try {
+      locos = world.getDimension(dimId).getEntities({ type: LOCO_ID });
+    } catch {
+      continue;
+    }
+    for (const loco of locos) {
+      try {
+        const cars = getTrain(loco).cars;
+        const riders = cars.flatMap((c) => riderPlayers(c));
+        if (!riders.length) continue;
+        const v = loco.getVelocity();
+        const bps = Math.hypot(v.x, v.z) * 20;
+        const level = loco.getDynamicProperty(P_SPEED);
+        const cap = cars.some((c) => c.typeId === BOOSTER_ID) ? BOOSTED_MAX_SPEED : MAX_SPEED;
+        const fire = loco.getDynamicProperty(P_RUN) === true ? "火あり" : "火なし";
+        const msg = `速度 ${bps.toFixed(1)} ブロック/秒 ｜ 設定 ${SPEED_LABEL[level] ?? "未設定"} (上限 ${cap * 20}) ｜ ${fire}`;
+        for (const p of riders) {
+          if (now - (lastTell.get(p.id) ?? -100) < 40) continue;
+          p.onScreenDisplay.setActionBar(msg);
+        }
+      } catch {}
+    }
+  }
+}, 5);
+
 // ===== 車両の最高速度を切り替える =====
 // レールでの最高速度はエンティティ定義のコンポーネントグループで決まるので、
 // 編成に合わせてイベントで切り替える (バニラのトロッコも上書き定義に同じイベントがある)
@@ -232,7 +272,25 @@ function syncSpeed(cart) {
   if (!cart.isValid || !CART_TYPES.has(cart.typeId)) return;
   const cars = getTrain(cart).cars;
   const level = speedLevelOf(cars);
-  for (const c of cars) setSpeed(c, level);
+  for (const c of cars) {
+    setSpeed(c, level);
+    syncCoupled(c);
+  }
+}
+
+// 連結している車両どうしは押し合わず、乗り上げもしないようにする
+// (タグ senro_coupled はエンティティ定義の押し合いの条件で使う)
+const P_COUPLED = "senro:coupled_state";
+function syncCoupled(cart) {
+  const coupled = getLinks(cart).length > 0;
+  const state = coupled ? "on" : "off";
+  if (cart.getDynamicProperty(P_COUPLED) === state) return;
+  try {
+    if (coupled) cart.addTag("senro_coupled");
+    else cart.removeTag("senro_coupled");
+    cart.setDynamicProperty(P_COUPLED, state);
+    cart.triggerEvent(coupled ? "senro:unstack" : "senro:stack");
+  } catch {}
 }
 
 // 新しく出てきた・読み込まれた車両はすぐ設定する (設定前はレールの上を走れないため)
@@ -255,6 +313,7 @@ system.runInterval(() => {
       for (const c of cars) {
         done.add(c.id);
         setSpeed(c, level);
+        syncCoupled(c);
       }
     }
   }

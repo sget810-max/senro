@@ -39,6 +39,23 @@
       "minecraft:pushable_by_entity": {
         "presets": [
           {
+            "filters": {
+              "all_of": [
+                {
+                  "test": "has_tag",
+                  "subject": "self",
+                  "value": "senro_coupled"
+                },
+                {
+                  "test": "has_tag",
+                  "subject": "other",
+                  "value": "senro_coupled"
+                }
+              ]
+            },
+            "push_mode": "none"
+          },
+          {
             "push_mode": "legacy_minecart",
             "strength_multiplier": 0.1,
             "min_distance": 0.01,

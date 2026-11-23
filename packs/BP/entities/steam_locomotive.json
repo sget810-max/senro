@@ -42,12 +42,7 @@
           ]
         }
       },
-      "minecraft:is_stackable": {},
       "minecraft:physics": {},
-      "minecraft:pushable": {
-        "is_pushable": true,
-        "is_pushable_by_piston": true
-      },
       "minecraft:conditional_bandwidth_optimization": {
         "default_values": {
           "max_optimized_distance": 60.0,
@@ -74,7 +69,36 @@
         "inventory_size": 27,
         "private": false,
         "restrict_to_owner": false
-      }
+      },
+      "minecraft:pushable_by_entity": {
+        "presets": [
+          {
+            "filters": {
+              "all_of": [
+                {
+                  "test": "has_tag",
+                  "subject": "self",
+                  "value": "senro_coupled"
+                },
+                {
+                  "test": "has_tag",
+                  "subject": "other",
+                  "value": "senro_coupled"
+                }
+              ]
+            },
+            "push_mode": "none"
+          },
+          {
+            "push_mode": "legacy_minecart",
+            "strength_multiplier": 0.1,
+            "min_distance": 0.01,
+            "push_scale_self": 0.5,
+            "push_scale_other": 0.25
+          }
+        ]
+      },
+      "minecraft:pushable_by_block": {}
     },
     "component_groups": {
       "senro:speed_normal": {
@@ -91,6 +115,9 @@
         "minecraft:rail_movement": {
           "max_speed": 0.8
         }
+      },
+      "senro:stackable": {
+        "minecraft:is_stackable": {}
       }
     },
     "events": {
@@ -136,7 +163,22 @@
       "minecraft:entity_spawned": {
         "add": {
           "component_groups": [
-            "senro:speed_normal"
+            "senro:speed_normal",
+            "senro:stackable"
+          ]
+        }
+      },
+      "senro:unstack": {
+        "remove": {
+          "component_groups": [
+            "senro:stackable"
+          ]
+        }
+      },
+      "senro:stack": {
+        "add": {
+          "component_groups": [
+            "senro:stackable"
           ]
         }
       }

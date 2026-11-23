@@ -39,10 +39,26 @@
         "inventory_size": 27,
         "container_type": "minecart_chest"
       },
-      "minecraft:is_stackable": {},
       "minecraft:physics": {},
       "minecraft:pushable_by_entity": {
         "presets": [
+          {
+            "filters": {
+              "all_of": [
+                {
+                  "test": "has_tag",
+                  "subject": "self",
+                  "value": "senro_coupled"
+                },
+                {
+                  "test": "has_tag",
+                  "subject": "other",
+                  "value": "senro_coupled"
+                }
+              ]
+            },
+            "push_mode": "none"
+          },
           {
             "push_mode": "legacy_minecart",
             "strength_multiplier": 0.1,
@@ -103,7 +119,22 @@
       "minecraft:entity_spawned": {
         "add": {
           "component_groups": [
-            "senro:speed_normal"
+            "senro:speed_normal",
+            "senro:stackable"
+          ]
+        }
+      },
+      "senro:unstack": {
+        "remove": {
+          "component_groups": [
+            "senro:stackable"
+          ]
+        }
+      },
+      "senro:stack": {
+        "add": {
+          "component_groups": [
+            "senro:stackable"
           ]
         }
       }
@@ -123,6 +154,9 @@
         "minecraft:rail_movement": {
           "max_speed": 0.8
         }
+      },
+      "senro:stackable": {
+        "minecraft:is_stackable": {}
       }
     }
   }

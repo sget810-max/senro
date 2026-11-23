@@ -34,10 +34,26 @@
           "use_motion_prediction_hints": true
         }
       },
-      "minecraft:is_stackable": {},
       "minecraft:physics": {},
       "minecraft:pushable_by_entity": {
         "presets": [
+          {
+            "filters": {
+              "all_of": [
+                {
+                  "test": "has_tag",
+                  "subject": "self",
+                  "value": "senro_coupled"
+                },
+                {
+                  "test": "has_tag",
+                  "subject": "other",
+                  "value": "senro_coupled"
+                }
+              ]
+            },
+            "push_mode": "none"
+          },
           {
             "push_mode": "legacy_minecart",
             "strength_multiplier": 0.1,
@@ -174,6 +190,9 @@
         "minecraft:rail_movement": {
           "max_speed": 0.8
         }
+      },
+      "senro:stackable": {
+        "minecraft:is_stackable": {}
       }
     },
     "events": {
@@ -181,7 +200,8 @@
         "add": {
           "component_groups": [
             "minecraft:inactive",
-            "senro:speed_normal"
+            "senro:speed_normal",
+            "senro:stackable"
           ]
         }
       },
@@ -245,6 +265,20 @@
         "add": {
           "component_groups": [
             "senro:speed_20"
+          ]
+        }
+      },
+      "senro:unstack": {
+        "remove": {
+          "component_groups": [
+            "senro:stackable"
+          ]
+        }
+      },
+      "senro:stack": {
+        "add": {
+          "component_groups": [
+            "senro:stackable"
           ]
         }
       }
