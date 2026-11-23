@@ -15,6 +15,7 @@ const YAW_OFFSET = 0;
 
 const P_BURN = "senro:burn"; // 今燃えている石炭の残りtick
 const P_RUN = "senro:running"; // 発車中かどうか
+const P_BRAKE = "senro:braking"; // 停車ボタンで止まろうとしている途中か
 const P_DX = "senro:dir_x";
 const P_DZ = "senro:dir_z";
 
@@ -110,6 +111,7 @@ function start(player, loco) {
     loco.setDynamicProperty(P_DZ, v.z / len);
   }
   loco.setDynamicProperty(P_RUN, true);
+  loco.setDynamicProperty(P_BRAKE, false);
   try {
     loco.dimension.playSound("fire.ignite", loco.location);
   } catch {}
@@ -118,6 +120,7 @@ function start(player, loco) {
 
 function stop(player, loco) {
   loco.setDynamicProperty(P_RUN, false);
+  loco.setDynamicProperty(P_BRAKE, true);
   player.onScreenDisplay.setActionBar("停車します");
 }
 
@@ -193,10 +196,15 @@ function driveLoco(loco, tick) {
 
   const running = loco.getDynamicProperty(P_RUN) === true;
   if (!running) {
-    // 停車中: ブレーキ
-    if (speed > 0.01) {
-      const b = Math.min(BRAKE, speed);
-      loco.applyImpulse({ x: -dx * b, y: 0, z: -dz * b });
+    // 「停車」を押したときだけ、止まるまでブレーキをかける。
+    // それ以外(手で押す・坂を下るなど)は普通のトロッコと同じに動く
+    if (loco.getDynamicProperty(P_BRAKE) === true) {
+      if (speed > 0.03) {
+        const b = Math.min(BRAKE, speed * 0.5); // 行き過ぎて逆走しないよう控えめに
+        loco.applyImpulse({ x: -dx * b, y: 0, z: -dz * b });
+      } else {
+        loco.setDynamicProperty(P_BRAKE, false);
+      }
     }
     return;
   }
