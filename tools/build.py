@@ -13,34 +13,57 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BP = os.path.join(ROOT, "packs", "BP")
 RP = os.path.join(ROOT, "packs", "RP")
 
-# ---------- テクスチャの色見本 (64x64 の中に 8x8 マスで並べる) ----------
+# ---------- テクスチャ (64x64 の中に 8x8 の素材マスを並べる) ----------
 SWATCH = 8
 PALETTE = {
-    "black": (38, 38, 42),
-    "dark": (70, 70, 78),
-    "red": (170, 32, 32),
-    "gold": (214, 170, 60),
-    "glass": (150, 200, 230),
-    "wheel": (110, 30, 30),
-    "steel": (140, 140, 150),
-    "lamp": (255, 235, 140),
+    "iron": (168, 168, 172),  # トロッコと同じ明るい鉄
+    "dark_iron": (72, 74, 80),
+    "plank": (160, 114, 64),  # 木の板
+    "dark_wood": (98, 66, 36),
+    "coal": (34, 34, 36),
+    "lamp": (255, 228, 130),
+    "wheel": (48, 48, 54),
+    "glass": (70, 92, 110),
 }
 SLOT = {name: (i % 8, i // 8) for i, name in enumerate(PALETTE)}
+
+
+def shade(c, k):
+    return tuple(max(0, min(255, int(v * k))) for v in c) + (255,)
+
+
+def swatch_pixel(name, x, y, rnd):
+    base = PALETTE[name]
+    n = rnd.uniform(-0.05, 0.05)
+    if name in ("iron", "dark_iron"):
+        # 縁を暗く、四隅にリベット
+        if (x, y) in ((1, 1), (6, 1), (1, 6), (6, 6)):
+            return shade(base, 1.25)
+        if x in (0, 7) or y in (0, 7):
+            return shade(base, 0.78)
+        return shade(base, 1.0 + n)
+    if name in ("plank", "dark_wood"):
+        # 板の継ぎ目(横線)と木目
+        if y in (3, 7):
+            return shade(base, 0.7)
+        if (x + y * 3) % 7 == 0:
+            return shade(base, 0.88)
+        return shade(base, 1.0 + n)
+    if name == "coal":
+        return shade(base, 1.6 if rnd.random() < 0.15 else 1.0 + n)
+    if x in (0, 7) or y in (0, 7):
+        return shade(base, 0.8)
+    return shade(base, 1.0 + n)
 
 
 def make_entity_texture(path):
     rnd = random.Random(1)
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-    for name, (r, g, b) in PALETTE.items():
+    for name in PALETTE:
         sx, sy = SLOT[name]
         for y in range(SWATCH):
             for x in range(SWATCH):
-                edge = x in (0, SWATCH - 1) or y in (0, SWATCH - 1)
-                k = 0.8 if edge else 1.0 + rnd.uniform(-0.06, 0.06)
-                img.putpixel(
-                    (sx * SWATCH + x, sy * SWATCH + y),
-                    tuple(max(0, min(255, int(c * k))) for c in (r, g, b)) + (255,),
-                )
+                img.putpixel((sx * SWATCH + x, sy * SWATCH + y), swatch_pixel(name, x, y, rnd))
     img.save(path)
 
 
@@ -51,40 +74,46 @@ def cube(origin, size, color):
     return {"origin": origin, "size": size, "uv": faces}
 
 
+def box(x0, x1, y0, y1, z0, z1, color):
+    return cube([x0, y0, z0], [x1 - x0, y1 - y0, z1 - z0], color)
+
+
 def make_geometry(path):
-    # 長さ方向 = X軸 (+X が前、煙突側)。サイズはトロッコと同程度(約20px)
+    # 長さ方向 = X軸 (+X が前、煙突側) で組んでから、最後に回す。
+    # 高さは煙突の先まで 32px = 2ブロック (ドアと同じ)。
     cubes = [
-        # 台枠
-        cube([-10, 4, -5], [20, 2, 10], "dark"),
-        # 動輪 (左右)
-        *[cube([x, 0, z], [w, w, 1], "wheel")
-          for x, w in ((-9, 6), (-2, 6), (5, 4)) for z in (-6, 5)],
-        # 連結棒
-        cube([-7, 2, -6.5], [11, 1, 0.5], "steel"),
-        cube([-7, 2, 6], [11, 1, 0.5], "steel"),
-        # ボイラー
-        cube([-3, 6, -4], [12, 7, 8], "black"),
-        # 金の帯
-        cube([2, 5.9, -4.1], [1, 7.2, 8.2], "gold"),
-        # 煙室扉
-        cube([9, 6, -4], [1, 7, 8], "dark"),
-        # 前照灯
-        cube([10, 10, -1], [0.5, 2, 2], "lamp"),
-        # 煙突
-        cube([5.5, 13, -1.5], [3, 5, 3], "black"),
-        cube([5, 18, -2], [4, 1.5, 4], "dark"),
-        # 蒸気ドーム
-        cube([0, 13, -1.5], [3, 2, 3], "gold"),
-        # 排障器
-        cube([10, 1, -4], [1, 4, 8], "red"),
-        # 運転室
-        cube([-10, 6, -5], [7, 11, 10], "red"),
-        cube([-11, 17, -6], [9, 1, 12], "black"),
-        # 窓
-        cube([-8.5, 12, -5.1], [4, 3.5, 0.1], "glass"),
-        cube([-8.5, 12, 5], [4, 3.5, 0.1], "glass"),
-        cube([-3.1, 12, -4], [0.1, 3.5, 3], "glass"),
-        cube([-3.1, 12, 1], [0.1, 3.5, 3], "glass"),
+        # --- 下回り: トロッコと同じ鉄の箱 (20x16) ---
+        box(-10, 10, 1, 10, -8, 8, "iron"),
+        box(-10.2, 10.2, 9, 10, -8.2, 8.2, "dark_iron"),  # 縁
+        *[box(x0, x0 + 4, 0, 3.5, z0, z0 + 0.6, "wheel")  # 車輪
+          for x0 in (-8, 4) for z0 in (-8.6, 8)],
+        box(-10.8, -10, 3, 5, -5, -3, "dark_iron"),  # 後ろの緩衝器
+        box(-10.8, -10, 3, 5, 3, 5, "dark_iron"),
+        box(10, 11.5, 0.5, 4, -6, 6, "dark_iron"),  # 排障器
+
+        # --- 後ろ: 石炭の積まれた木の炭水車 ---
+        box(-10, -5, 10, 15, -7, 7, "plank"),
+        box(-9.5, -5.5, 15, 16, -6.5, 6.5, "coal"),
+
+        # --- 真ん中: 運転室 (横が開いていて、乗っても前が見える) ---
+        box(-5, 3, 10, 15, -7.5, -6.5, "plank"),  # 腰板
+        box(-5, 3, 10, 15, 6.5, 7.5, "plank"),
+        *[box(x0, x0 + 1, 15, 28, z0, z0 + 1, "dark_wood")  # 柱
+          for x0 in (-5, 2) for z0 in (-7.5, 6.5)],
+        box(-5.5, 3.5, 28, 29, -8, 8, "dark_iron"),  # 鉄の屋根
+        box(-5, 3, 29, 29.5, -6.5, 6.5, "dark_iron"),
+
+        # --- 前: 木の板を巻いて鉄の帯で締めたボイラー ---
+        box(3, 9.5, 10, 19, -4.5, 4.5, "plank"),
+        box(3, 9.5, 19, 20, -3.5, 3.5, "plank"),  # 丸みの代わり
+        box(4, 5, 9.9, 20.1, -4.6, 4.6, "dark_iron"),
+        box(7, 8, 9.9, 20.1, -4.6, 4.6, "dark_iron"),
+        box(9.5, 10.5, 10, 19, -4.5, 4.5, "dark_iron"),  # 煙室
+        box(3.5, 5.5, 20, 22, -1.5, 1.5, "iron"),  # 蒸気ドーム
+        box(6, 8.5, 20, 29, -1.25, 1.25, "dark_iron"),  # 煙突
+        box(5.25, 9.25, 29, 32, -2, 2, "dark_iron"),
+        box(10.5, 11.5, 19, 22, -1.5, 1.5, "lamp"),  # ランプ
+        box(10.4, 11.6, 22, 22.5, -1.7, 1.7, "dark_iron"),
     ]
     # トロッコの進行方向はモデルのZ軸なので90度回す (前 +X → -Z、北向き = エンティティの正面)
     for c in cubes:
@@ -100,8 +129,8 @@ def make_geometry(path):
                     "texture_width": 64,
                     "texture_height": 64,
                     "visible_bounds_width": 3,
-                    "visible_bounds_height": 2.5,
-                    "visible_bounds_offset": [0, 0.75, 0],
+                    "visible_bounds_height": 3,
+                    "visible_bounds_offset": [0, 1, 0],
                 },
                 "bones": [{"name": "body", "pivot": [0, 0, 0], "cubes": cubes}],
             }
@@ -113,45 +142,44 @@ def make_geometry(path):
 
 # ---------- アイテムアイコン (16x16 ドット絵) ----------
 ICON = [
-    "................",
-    "................",
-    "..........kk....",
-    "...rrrrr..kk....",
-    "...kkkkk.kkkk...",
-    "...rggrr........",
-    "...rggrr.y......",
-    "...rrrrrkkkkkkd.",
-    "...rrrrrkkkGkkdl",
-    "...rrrrrkkkGkkd.",
-    "..dddddddddddddd",
-    "..wwww.wwww..ww.",
-    ".wwssww.wsww.ww.",
-    "..wwww.wwww.....",
-    "................",
+    "...........KK...",
+    "...KKKKKKK.KK...",
+    "...D.....D.KK...",
+    "...D.....D.KK...",
+    "...D.....D.KK...",
+    "...D.....D.KK.L.",
+    "...D.....DPKPKL.",
+    ".CCPPPPPPPPKPKD.",
+    ".PPPPPPPPPPKPKD.",
+    ".PPPPPPPPPPKPKD.",
+    "KKKKKKKKKKKKKKKK",
+    ".IIIIIIIIIIIIII.",
+    ".IIIIIIIIIIIIII.",
+    ".IIIIIIIIIIIIII.",
+    "..WW.......WW...",
     "................",
 ]
 ICON_COLORS = {
-    "k": PALETTE["black"], "d": PALETTE["dark"], "r": PALETTE["red"],
-    "g": PALETTE["glass"], "G": PALETTE["gold"], "y": PALETTE["gold"],
-    "w": PALETTE["wheel"], "s": PALETTE["steel"], "l": PALETTE["lamp"],
+    "K": PALETTE["dark_iron"], "I": PALETTE["iron"], "P": PALETTE["plank"],
+    "D": PALETTE["dark_wood"], "C": PALETTE["coal"], "L": PALETTE["lamp"],
+    "W": PALETTE["wheel"],
 }
-
 
 LEVER_ICON = [
     "................",
-    "..........yy....",
-    ".........yyyy...",
-    ".........yyyy...",
-    "..........yy....",
-    ".........ss.....",
-    "........ss......",
-    ".......ss.......",
-    "......ss........",
-    ".....ss.........",
-    "...dddddddd.....",
-    "...drrrrrrd.....",
-    "...drrrrrrd.....",
-    "...dddddddd.....",
+    "..........LL....",
+    ".........LLLL...",
+    ".........LLLL...",
+    "..........LL....",
+    ".........KK.....",
+    "........KK......",
+    ".......KK.......",
+    "......KK........",
+    ".....KK.........",
+    "...KKKKKKKK.....",
+    "...KPPPPPPK.....",
+    "...KPPPPPPK.....",
+    "...KKKKKKKK.....",
     "................",
     "................",
 ]
