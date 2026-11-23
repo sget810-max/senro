@@ -1,6 +1,6 @@
 import { world, system, ItemStack } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
-import { getTrain } from "./coupling.js";
+import { getTrain, CART_TYPES } from "./coupling.js";
 
 // ===== 設定 =====
 const LOCO_ID = "senro:steam_locomotive";
@@ -67,8 +67,9 @@ function riderPlayers(loco) {
   return (r?.getRiders() ?? []).filter((e) => e.typeId === "minecraft:player");
 }
 
+// 編成のどの車両に乗っている人にも知らせる
 function tell(loco, msg) {
-  for (const p of riderPlayers(loco)) p.onScreenDisplay.setActionBar(msg);
+  for (const car of getTrain(loco).cars) for (const p of riderPlayers(car)) p.onScreenDisplay.setActionBar(msg);
 }
 
 // ===== 運転メニュー =====
@@ -132,25 +133,34 @@ function stop(player, loco) {
   player.onScreenDisplay.setActionBar("火を消して停車します");
 }
 
-// 運転レバーを使う → 乗っている汽車のメニュー
+// 運転レバーを使う → 乗っている車両の編成の汽車のメニュー
 world.afterEvents.itemUse.subscribe((ev) => {
   if (ev.itemStack?.typeId !== THROTTLE_ID) return;
-  const loco = ev.source.getComponent("minecraft:riding")?.entityRidingOn;
-  if (!loco || loco.typeId !== LOCO_ID) {
-    ev.source.onScreenDisplay.setActionBar("汽車に乗って使うか、レバーで汽車をタップしてください");
+  const ride = ev.source.getComponent("minecraft:riding")?.entityRidingOn;
+  const loco = ride && CART_TYPES.has(ride.typeId) ? findLoco(ride) : undefined;
+  if (!loco) {
+    ev.source.onScreenDisplay.setActionBar(
+      ride ? "この編成には汽車がありません" : "汽車の編成に乗って使うか、レバーで車両をタップしてください"
+    );
     return;
   }
   openMenu(ev.source, loco);
 });
 
-// 運転レバーで汽車をタップ → メニュー / 石炭で汽車をタップ → 汽車のインベントリへ入れる
+// 運転レバーで車両をタップ → 編成の汽車のメニュー / 石炭で汽車をタップ → 汽車のインベントリへ入れる
 world.beforeEvents.playerInteractWithEntity.subscribe((ev) => {
   const { player, target, itemStack } = ev;
-  if (target.typeId !== LOCO_ID || !itemStack) return;
+  if (!itemStack || !CART_TYPES.has(target.typeId)) return;
   if (itemStack.typeId === THROTTLE_ID) {
+    // 同じ編成の車両ならどれをタップしても汽車のメニュー
     ev.cancel = true;
-    system.run(() => openMenu(player, target));
-  } else if (itemStack.typeId in FUEL_ITEMS) {
+    system.run(() => {
+      if (!target.isValid) return;
+      const loco = findLoco(target);
+      if (loco) openMenu(player, loco);
+      else player.onScreenDisplay.setActionBar("この編成には汽車がありません");
+    });
+  } else if (target.typeId === LOCO_ID && itemStack.typeId in FUEL_ITEMS) {
     ev.cancel = true;
     system.run(() => putFuelFromHand(player, target));
   }
@@ -187,9 +197,15 @@ system.runInterval(() => {
   }
 }, 1);
 
-// 乗っている人のスティック入力: 前 = 1, 後ろ = -1, なし = 0
-function riderInput(loco) {
-  for (const p of riderPlayers(loco)) {
+// 車両の編成にいる汽車 (なければ undefined)
+function findLoco(cart) {
+  if (cart.typeId === LOCO_ID) return cart;
+  return getTrain(cart).cars.find((c) => c.typeId === LOCO_ID);
+}
+
+// 編成のどれかの車両に乗っている人のスティック入力: 前 = 1, 後ろ = -1, なし = 0
+function riderInput(cars) {
+  for (const p of cars.flatMap((c) => riderPlayers(c))) {
     let v;
     try {
       v = p.inputInfo?.getMovementVector?.();
@@ -234,8 +250,10 @@ function driveLoco(loco, tick) {
   }
 
   const train = getTrain(loco).cars;
-  const front = frontDir(loco);
-  const input = riderInput(loco);
+  // 汽車が2両以上いる編成では、IDが一番小さい汽車の煙突の向きを「前」にそろえる
+  const lead = train.filter((c) => c.typeId === LOCO_ID).sort((a, b) => (a.id < b.id ? -1 : 1))[0] ?? loco;
+  const front = frontDir(lead);
+  const input = riderInput(train);
 
   // 進む向き: 走っていればその向き、止まっていればスティックの向き
   let dx, dz;
