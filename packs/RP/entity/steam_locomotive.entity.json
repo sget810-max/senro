@@ -1,0 +1,12 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "senro:steam_locomotive",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/senro_steam_locomotive" },
+      "geometry": { "default": "geometry.senro_steam_locomotive" },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}
