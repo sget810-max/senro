@@ -19,6 +19,7 @@ const P_BURN = "senro:burn"; // 今燃えている石炭の残りtick
 const P_RUN = "senro:running"; // 発車中かどうか
 const P_BRAKE = "senro:braking"; // 停車ボタンで止まろうとしている途中か
 // スティック入力が使えない版のときだけ使う、発車の向き
+const P_SENSE = "senro:sense"; // 前進中 1 / 後退中 -1
 const P_DX = "senro:dir_x";
 const P_DZ = "senro:dir_z";
 
@@ -322,7 +323,14 @@ function driveLoco(loco, tick) {
   if (speed > 0.02) {
     dx = vel.x / speed;
     dz = vel.z / speed;
-    const along = dx * front.x + dz * front.z >= 0 ? 1 : -1; // 前進中なら 1、後退中なら -1
+    // 前進中なら 1、後退中なら -1。カーブの途中では進む向きと煙突の向きが直角近くになり
+    // 判定がぶれるので、はっきりしているときだけ更新して覚えておく
+    const dot = dx * front.x + dz * front.z;
+    let along = loco.getDynamicProperty(P_SENSE) ?? (dot >= 0 ? 1 : -1);
+    if (Math.abs(dot) > 0.5) {
+      along = dot > 0 ? 1 : -1;
+      if (loco.getDynamicProperty(P_SENSE) !== along) loco.setDynamicProperty(P_SENSE, along);
+    }
     if (input !== 0 && input !== along) {
       // 走っている向きと逆に倒した → ブレーキ (止まったら逆向きに走り出す)
       brakeTrain(train, loco, vel);
@@ -331,6 +339,7 @@ function driveLoco(loco, tick) {
   } else if (input !== 0) {
     dx = front.x * input;
     dz = front.z * input;
+    loco.setDynamicProperty(P_SENSE, input);
   } else if (loco.getDynamicProperty(P_DX) !== undefined) {
     dx = loco.getDynamicProperty(P_DX); // スティック入力が使えない版の発車
     dz = loco.getDynamicProperty(P_DZ);
@@ -356,13 +365,13 @@ function driveLoco(loco, tick) {
     const push = Math.min(ACCEL, maxSpeed - speed + 0.01);
     loco.applyImpulse({ x: dx * push, y: 0, z: dz * push });
   }
-  // 編成の車両も押す (汽車と同じ向きに動いているものだけ。止まっている車両は連結で引っぱられる)
+  // 編成の車両も、それぞれ自分の進む向きに押す (カーブでは車両ごとに向きが違うため)。
+  // 止まっている車両は連結で引っぱられて動き出す
   for (const car of train) {
     if (car === loco) continue;
     const v = car.getVelocity();
     const s = Math.hypot(v.x, v.z);
     if (s < 0.02 || s >= maxSpeed) continue;
-    if ((v.x * dx + v.z * dz) / s < 0) continue;
     const push = Math.min(ACCEL, maxSpeed - s + 0.01);
     car.applyImpulse({ x: (v.x / s) * push, y: 0, z: (v.z / s) * push });
   }

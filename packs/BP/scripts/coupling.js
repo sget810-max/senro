@@ -20,6 +20,8 @@ export const CART_TYPES = new Set([
 const MAX_CARS = 8; // 1編成の最大両数 (先頭の汽車を含む)
 const COUPLE_RANGE = 4; // つなげる距離 (ブロック)
 const GAP = 1.6; // 連結時の車両の中心どうしの間隔
+const SLACK_PULL = 0.1; // これ以上離れたら引っぱる
+const SLACK_PUSH = 0.2; // これ以上近づいたら押し返す (車体どうしがぶつからない程度)
 const BREAK_DIST = 10; // これ以上離れたら切れる
 const HALF_LEN = 0.625; // 車体の長さの半分
 const LINK_HEIGHT = 0.3; // 紐の高さ
@@ -248,9 +250,15 @@ function keepDistance(links) {
       nx /= d;
       nz /= d;
       const va = vel.get(a.id), vb = vel.get(b.id);
-      const e = d - GAP;
+      // 本物の連結器のように「遊び」を持たせる。カーブでは車両の中心どうしの直線距離が
+      // 線路に沿った距離より短くなるので、少し近づいたくらいでは押し返さない
+      // (押し返すと、その力の一部が進む向きと逆に働いて減速してしまう)
+      let e = d - GAP;
+      if (e > SLACK_PULL) e -= SLACK_PULL;
+      else if (e < -SLACK_PUSH) e += SLACK_PUSH;
+      else e = 0;
       const vrel = (vb.x - va.x) * nx + (vb.z - va.z) * nz;
-      if (Math.abs(e) < 0.03 && Math.abs(vrel) < 0.005) continue;
+      if (e === 0) continue; // 遊びの中: 何もしない (それぞれ自由に走る)
       const desired = Math.max(-0.3, Math.min(0.3, -e * 0.25));
       const dv = (desired - vrel) * 0.4; // 両方に半分ずつ
       va.x -= nx * dv; va.z -= nz * dv;
