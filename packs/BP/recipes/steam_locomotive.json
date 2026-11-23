@@ -1,0 +1,10 @@
+{
+  "format_version": "1.21.50",
+  "minecraft:recipe_shapeless": {
+    "description": { "identifier": "senro:steam_locomotive" },
+    "tags": ["crafting_table"],
+    "unlock": { "context": "AlwaysUnlocked" },
+    "ingredients": [{ "item": "minecraft:furnace" }, { "item": "minecraft:minecart" }],
+    "result": { "item": "senro:steam_locomotive" }
+  }
+}

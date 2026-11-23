@@ -2,6 +2,11 @@
   "resource_pack_name": "senro",
   "texture_name": "atlas.items",
   "texture_data": {
-    "senro_steam_locomotive": { "textures": "textures/items/steam_locomotive" }
+    "senro_steam_locomotive": {
+      "textures": "textures/items/steam_locomotive"
+    },
+    "senro_throttle": {
+      "textures": "textures/items/throttle"
+    }
   }
 }

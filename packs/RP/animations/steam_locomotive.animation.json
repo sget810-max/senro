@@ -1,0 +1,11 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.senro_steam_locomotive.flip": {
+      "loop": true,
+      "bones": {
+        "body": { "rotation": [0, "q.property('senro:flip') ? 180 : 0", 0] }
+      }
+    }
+  }
+}

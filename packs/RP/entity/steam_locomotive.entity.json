@@ -3,10 +3,26 @@
   "minecraft:client_entity": {
     "description": {
       "identifier": "senro:steam_locomotive",
-      "materials": { "default": "entity_alphatest" },
-      "textures": { "default": "textures/entity/senro_steam_locomotive" },
-      "geometry": { "default": "geometry.senro_steam_locomotive" },
-      "render_controllers": ["controller.render.default"]
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/senro_steam_locomotive"
+      },
+      "geometry": {
+        "default": "geometry.senro_steam_locomotive"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ],
+      "animations": {
+        "flip": "animation.senro_steam_locomotive.flip"
+      },
+      "scripts": {
+        "animate": [
+          "flip"
+        ]
+      }
     }
   }
 }

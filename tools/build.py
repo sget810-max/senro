@@ -86,6 +86,11 @@ def make_geometry(path):
         cube([-3.1, 12, -4], [0.1, 3.5, 3], "glass"),
         cube([-3.1, 12, 1], [0.1, 3.5, 3], "glass"),
     ]
+    # トロッコの進行方向はモデルのZ軸なので90度回す (前 +X → -Z、北向き = エンティティの正面)
+    for c in cubes:
+        (x, y, z), (w, h, d) = c["origin"], c["size"]
+        c["origin"] = [z, y, -(x + w)]
+        c["size"] = [d, h, w]
     geo = {
         "format_version": "1.12.0",
         "minecraft:geometry": [
@@ -132,9 +137,29 @@ ICON_COLORS = {
 }
 
 
-def make_icon(path, scale=1):
+LEVER_ICON = [
+    "................",
+    "..........yy....",
+    ".........yyyy...",
+    ".........yyyy...",
+    "..........yy....",
+    ".........ss.....",
+    "........ss......",
+    ".......ss.......",
+    "......ss........",
+    ".....ss.........",
+    "...dddddddd.....",
+    "...drrrrrrd.....",
+    "...drrrrrrd.....",
+    "...dddddddd.....",
+    "................",
+    "................",
+]
+
+
+def make_icon(path, scale=1, pattern=ICON):
     img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
-    for y, row in enumerate(ICON):
+    for y, row in enumerate(pattern):
         for x, ch in enumerate(row):
             if ch in ICON_COLORS:
                 img.putpixel((x, y), ICON_COLORS[ch] + (255,))
@@ -154,6 +179,7 @@ def main():
     make_entity_texture(os.path.join(RP, "textures", "entity", "senro_steam_locomotive.png"))
     make_geometry(os.path.join(RP, "models", "entity", "steam_locomotive.geo.json"))
     make_icon(os.path.join(RP, "textures", "items", "steam_locomotive.png"))
+    make_icon(os.path.join(RP, "textures", "items", "throttle.png"), pattern=LEVER_ICON)
     make_icon(os.path.join(RP, "pack_icon.png"), scale=8)
     make_icon(os.path.join(BP, "pack_icon.png"), scale=8)
 
