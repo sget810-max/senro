@@ -20,9 +20,7 @@ RP = os.path.join(ROOT, "packs", "RP")
 TEXTURES = {
     "planks": "textures/blocks/planks_oak",
     "log": "textures/blocks/log_oak",
-    "furnace_side": "textures/blocks/furnace_side",
-    "furnace_front": "textures/blocks/furnace_front_on",
-    "furnace_top": "textures/blocks/furnace_top",
+    "furnace": "textures/entity/senro_furnace",  # 自作 (tools/src のかまどを縮めて作る)
     "coal": "textures/blocks/coal_block",
     "lamp": "textures/blocks/redstone_lamp_on",
 }
@@ -50,22 +48,62 @@ PARTS = {
         for x0 in (-10, 0.5) for z0 in (-8, 6.5)
     ],
     "coal": [
-        box(4.5, 7.5, 26.5, 30, -1.5, 1.5),  # 煙突
+        box(4.5, 7.5, 22.5, 30, -1.5, 1.5),  # 煙突
         box(3.5, 8.5, 30, 32, -2.5, 2.5),  # 煙突の先
     ],
-    # 前半分: 長さ半分のかまど (幅・高さは1ブロック)。トロッコの縁の上に載せる
-    "furnace_side": [box(2, 10, 10.5, 26.5, -8, 8)],
-    "furnace_front": [box(1.98, 1.98, 10.5, 26.5, -8, 8)],  # 運転台側だけ火の見える焚き口
-    "furnace_top": [box(2, 10, 26.52, 26.52, -8, 8)],
-    "lamp": [box(10, 11.5, 20, 23, -1.5, 1.5)],  # 前照灯
+    # 前半分: 小さめのかまど (幅12・高さ12・長さ8)。トロッコの箱の口にはめて縁の高さに載せる
+    "furnace": [box(2, 10, 10.5, 22.5, -6, 6)],
+    "lamp": [box(10, 11.5, 17, 20, -1.5, 1.5)],  # 前照灯
 }
 
 
-# 模様の枠が切れないよう、面の大きさに関係なくテクスチャ全体を貼る部品
-FULL_TEXTURE = {"furnace_side", "furnace_front", "furnace_top", "lamp"}
+# ---------- かまどのテクスチャ ----------
+# バニラのかまど(16x16)から行と列を間引いて、面の大きさぴったりの絵を作り、
+# 1枚の画像(32x32)にまとめる。面ごとに等倍で貼るので、伸びたり欠けたりしない。
+SRC = os.path.join(ROOT, "tools", "src")
+KEEP12 = [0, 1, 3, 4, 6, 7, 9, 10, 11, 12, 14, 15]  # 16→12 (端の枠は残す)
+KEEP8 = [0, 1, 3, 6, 9, 12, 14, 15]  # 16→8
+FURNACE_UV = {  # 面 → 画像内の位置 [u, v] と大きさ [w, h]
+    "front": ([0, 0], [12, 12]),  # 運転台側: 火の見える焚き口
+    "side12": ([12, 0], [12, 12]),  # 前側
+    "side8": ([24, 0], [8, 12]),  # 左右
+    "top": ([0, 12], [12, 8]),  # 上下
+}
 
 
-def to_cube(b, full=False):
+def shrink(img, cols, rows):
+    out = Image.new("RGBA", (len(cols), len(rows)))
+    for y, sy in enumerate(rows):
+        for x, sx in enumerate(cols):
+            out.putpixel((x, y), img.getpixel((sx, sy)))
+    return out
+
+
+def make_furnace_texture(path):
+    front = Image.open(os.path.join(SRC, "furnace_front_on.png")).convert("RGBA")
+    side = Image.open(os.path.join(SRC, "furnace_side.png")).convert("RGBA")
+    top = Image.open(os.path.join(SRC, "furnace_top.png")).convert("RGBA")
+    atlas = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    atlas.paste(shrink(front, KEEP12, KEEP12), (0, 0))
+    atlas.paste(shrink(side, KEEP12, KEEP12), (12, 0))
+    atlas.paste(shrink(side, KEEP8, KEEP12), (24, 0))
+    atlas.paste(shrink(top, KEEP12, KEEP8), (0, 12))
+    atlas.save(path)
+
+
+def furnace_cube(b):
+    cube = to_cube(b)
+    uv = lambda k: {"uv": FURNACE_UV[k][0], "uv_size": FURNACE_UV[k][1]}
+    # 回転後: north = 汽車の前、south = 運転台側、east/west = 左右
+    cube["uv"] = {
+        "north": uv("side12"), "south": uv("front"),
+        "east": uv("side8"), "west": uv("side8"),
+        "up": uv("top"), "down": uv("top"),
+    }
+    return cube
+
+
+def to_cube(b):
     """X長手の箱を、トロッコの進行方向(モデルのZ軸)に90度回して、面ごとのUVを付ける。"""
     x0, x1, y0, y1, z0, z1 = b
     # 前 +X → -Z (北向き = エンティティの正面)
@@ -74,8 +112,6 @@ def to_cube(b, full=False):
 
     def face(a, b_):
         # テクスチャ(16x16)の真ん中から、面の大きさぶん切り取る (等倍で貼る)
-        if full:
-            return {"uv": [0, 0], "uv_size": [16, 16]}
         a2, b2 = min(a, 16), min(b_, 16)
         return {"uv": [(16 - a2) / 2, (16 - b2) / 2], "uv_size": [a2, b2]}
 
@@ -114,10 +150,12 @@ def geometry_file(identifier, tex_w, tex_h, bones):
 def make_part_geometries(path):
     geos = []
     for key, boxes in PARTS.items():
+        size = 32 if key == "furnace" else 16
+        make = furnace_cube if key == "furnace" else to_cube
         geo = geometry_file(
-            f"geometry.senro_loco_{key}", 16, 16,
+            f"geometry.senro_loco_{key}", size, size,
             # 向きのアニメーションは "body" の骨を回す
-            [{"name": "body", "pivot": [0, 0, 0], "cubes": [to_cube(b, key in FULL_TEXTURE) for b in boxes]}],
+            [{"name": "body", "pivot": [0, 0, 0], "cubes": [make(b) for b in boxes]}],
         )
         geos += geo["minecraft:geometry"]
     with open(path, "w", encoding="utf-8") as f:
@@ -256,6 +294,8 @@ def zip_dir(zf, src, arc_prefix):
 
 
 def main():
+    os.makedirs(os.path.join(RP, "textures", "entity"), exist_ok=True)
+    make_furnace_texture(os.path.join(RP, "textures", "entity", "senro_furnace.png"))
     make_part_geometries(os.path.join(RP, "models", "entity", "steam_locomotive.geo.json"))
     make_cart_geometry(os.path.join(RP, "models", "entity", "steam_locomotive_cart.geo.json"))
     make_client_files()

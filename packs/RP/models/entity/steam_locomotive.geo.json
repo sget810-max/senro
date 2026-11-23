@@ -744,53 +744,53 @@
             {
               "origin": [
                 -1.5,
-                26.5,
+                22.5,
                 -7.5
               ],
               "size": [
                 3.0,
-                3.5,
+                7.5,
                 3.0
               ],
               "uv": {
                 "north": {
                   "uv": [
                     6.5,
-                    6.25
+                    4.25
                   ],
                   "uv_size": [
                     3.0,
-                    3.5
+                    7.5
                   ]
                 },
                 "south": {
                   "uv": [
                     6.5,
-                    6.25
+                    4.25
                   ],
                   "uv_size": [
                     3.0,
-                    3.5
+                    7.5
                   ]
                 },
                 "east": {
                   "uv": [
                     6.5,
-                    6.25
+                    4.25
                   ],
                   "uv_size": [
                     3.0,
-                    3.5
+                    7.5
                   ]
                 },
                 "west": {
                   "uv": [
                     6.5,
-                    6.25
+                    4.25
                   ],
                   "uv_size": [
                     3.0,
-                    3.5
+                    7.5
                   ]
                 },
                 "up": {
@@ -895,9 +895,9 @@
     },
     {
       "description": {
-        "identifier": "geometry.senro_loco_furnace_side",
-        "texture_width": 16,
-        "texture_height": 16,
+        "identifier": "geometry.senro_loco_furnace",
+        "texture_width": 32,
+        "texture_height": 32,
         "visible_bounds_width": 3,
         "visible_bounds_height": 3,
         "visible_bounds_offset": [
@@ -917,24 +917,24 @@
           "cubes": [
             {
               "origin": [
-                -8,
+                -6,
                 10.5,
                 -10
               ],
               "size": [
-                16,
-                16.0,
+                12,
+                12.0,
                 8
               ],
               "uv": {
                 "north": {
                   "uv": [
-                    0,
+                    12,
                     0
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    12,
+                    12
                   ]
                 },
                 "south": {
@@ -943,168 +943,48 @@
                     0
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    12,
+                    12
                   ]
                 },
                 "east": {
                   "uv": [
-                    0,
+                    24,
                     0
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    8,
+                    12
                   ]
                 },
                 "west": {
                   "uv": [
-                    0,
+                    24,
                     0
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    8,
+                    12
                   ]
                 },
                 "up": {
                   "uv": [
                     0,
-                    0
+                    12
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    12,
+                    8
                   ]
                 },
                 "down": {
                   "uv": [
                     0,
-                    0
+                    12
                   ],
                   "uv_size": [
-                    16,
-                    16
-                  ]
-                }
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "description": {
-        "identifier": "geometry.senro_loco_furnace_front",
-        "texture_width": 16,
-        "texture_height": 16,
-        "visible_bounds_width": 3,
-        "visible_bounds_height": 3,
-        "visible_bounds_offset": [
-          0,
-          1,
-          0
-        ]
-      },
-      "bones": [
-        {
-          "name": "body",
-          "pivot": [
-            0,
-            0,
-            0
-          ],
-          "cubes": [
-            {
-              "origin": [
-                -8,
-                10.5,
-                -1.98
-              ],
-              "size": [
-                16,
-                16.0,
-                0.0
-              ],
-              "uv": {
-                "north": {
-                  "uv": [
-                    0,
-                    0
-                  ],
-                  "uv_size": [
-                    16,
-                    16
-                  ]
-                },
-                "south": {
-                  "uv": [
-                    0,
-                    0
-                  ],
-                  "uv_size": [
-                    16,
-                    16
-                  ]
-                }
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "description": {
-        "identifier": "geometry.senro_loco_furnace_top",
-        "texture_width": 16,
-        "texture_height": 16,
-        "visible_bounds_width": 3,
-        "visible_bounds_height": 3,
-        "visible_bounds_offset": [
-          0,
-          1,
-          0
-        ]
-      },
-      "bones": [
-        {
-          "name": "body",
-          "pivot": [
-            0,
-            0,
-            0
-          ],
-          "cubes": [
-            {
-              "origin": [
-                -8,
-                26.52,
-                -10
-              ],
-              "size": [
-                16,
-                0.0,
-                8
-              ],
-              "uv": {
-                "up": {
-                  "uv": [
-                    0,
-                    0
-                  ],
-                  "uv_size": [
-                    16,
-                    16
-                  ]
-                },
-                "down": {
-                  "uv": [
-                    0,
-                    0
-                  ],
-                  "uv_size": [
-                    16,
-                    16
+                    12,
+                    8
                   ]
                 }
               }
@@ -1138,7 +1018,7 @@
             {
               "origin": [
                 -1.5,
-                20,
+                17,
                 -11.5
               ],
               "size": [
@@ -1149,62 +1029,62 @@
               "uv": {
                 "north": {
                   "uv": [
-                    0,
-                    0
+                    6.5,
+                    6.5
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    3.0,
+                    3
                   ]
                 },
                 "south": {
                   "uv": [
-                    0,
-                    0
+                    6.5,
+                    6.5
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    3.0,
+                    3
                   ]
                 },
                 "east": {
                   "uv": [
-                    0,
-                    0
+                    7.25,
+                    6.5
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    1.5,
+                    3
                   ]
                 },
                 "west": {
                   "uv": [
-                    0,
-                    0
+                    7.25,
+                    6.5
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    1.5,
+                    3
                   ]
                 },
                 "up": {
                   "uv": [
-                    0,
-                    0
+                    6.5,
+                    7.25
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    3.0,
+                    1.5
                   ]
                 },
                 "down": {
                   "uv": [
-                    0,
-                    0
+                    6.5,
+                    7.25
                   ],
                   "uv_size": [
-                    16,
-                    16
+                    3.0,
+                    1.5
                   ]
                 }
               }

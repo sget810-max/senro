@@ -34,37 +34,15 @@
         "Texture.log"
       ]
     },
-    "controller.render.senro_loco_furnace_side": {
-      "geometry": "Geometry.furnace_side",
+    "controller.render.senro_loco_furnace": {
+      "geometry": "Geometry.furnace",
       "materials": [
         {
           "*": "Material.default"
         }
       ],
       "textures": [
-        "Texture.furnace_side"
-      ]
-    },
-    "controller.render.senro_loco_furnace_front": {
-      "geometry": "Geometry.furnace_front",
-      "materials": [
-        {
-          "*": "Material.default"
-        }
-      ],
-      "textures": [
-        "Texture.furnace_front"
-      ]
-    },
-    "controller.render.senro_loco_furnace_top": {
-      "geometry": "Geometry.furnace_top",
-      "materials": [
-        {
-          "*": "Material.default"
-        }
-      ],
-      "textures": [
-        "Texture.furnace_top"
+        "Texture.furnace"
       ]
     },
     "controller.render.senro_loco_coal": {

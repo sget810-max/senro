@@ -10,9 +10,7 @@
         "cart": "textures/entity/minecart",
         "planks": "textures/blocks/planks_oak",
         "log": "textures/blocks/log_oak",
-        "furnace_side": "textures/blocks/furnace_side",
-        "furnace_front": "textures/blocks/furnace_front_on",
-        "furnace_top": "textures/blocks/furnace_top",
+        "furnace": "textures/entity/senro_furnace",
         "coal": "textures/blocks/coal_block",
         "lamp": "textures/blocks/redstone_lamp_on"
       },
@@ -20,9 +18,7 @@
         "cart": "geometry.senro_locomotive_cart",
         "planks": "geometry.senro_loco_planks",
         "log": "geometry.senro_loco_log",
-        "furnace_side": "geometry.senro_loco_furnace_side",
-        "furnace_front": "geometry.senro_loco_furnace_front",
-        "furnace_top": "geometry.senro_loco_furnace_top",
+        "furnace": "geometry.senro_loco_furnace",
         "coal": "geometry.senro_loco_coal",
         "lamp": "geometry.senro_loco_lamp"
       },
@@ -38,9 +34,7 @@
         "controller.render.senro_loco_cart",
         "controller.render.senro_loco_planks",
         "controller.render.senro_loco_log",
-        "controller.render.senro_loco_furnace_side",
-        "controller.render.senro_loco_furnace_front",
-        "controller.render.senro_loco_furnace_top",
+        "controller.render.senro_loco_furnace",
         "controller.render.senro_loco_coal",
         "controller.render.senro_loco_lamp"
       ]
