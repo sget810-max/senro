@@ -1,13 +1,13 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Senro 汽車 BP v1.1.0",
+    "name": "Senro 汽車 BP v1.1.1",
     "description": "かまど付きトロッコ風の「汽車」を追加します",
     "uuid": "b84aeaa2-ae79-4696-925a-dd908b3a0e52",
     "version": [
       1,
       1,
-      0
+      1
     ],
     "min_engine_version": [
       1,
@@ -22,7 +22,7 @@
       "version": [
         1,
         1,
-        0
+        1
       ]
     },
     {
@@ -33,7 +33,7 @@
       "version": [
         1,
         1,
-        0
+        1
       ]
     }
   ],
@@ -43,7 +43,7 @@
       "version": [
         1,
         1,
-        0
+        1
       ]
     },
     {
