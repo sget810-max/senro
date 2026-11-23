@@ -3,3 +3,7 @@ item.senro:steam_locomotive=汽車
 item.senro:throttle=運転レバー
 item.senro:coupler=連結器
 entity.senro:coupling_link.name=連結
+item.senro:booster_locomotive=補助機関車
+entity.senro:booster_locomotive.name=補助機関車
+item.senro:booster_locomotive=補助機関車
+entity.senro:booster_locomotive.name=補助機関車

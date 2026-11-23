@@ -1,6 +1,6 @@
 import { world, system, ItemStack } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
-import { getTrain, CART_TYPES } from "./coupling.js";
+import { getTrain, CART_TYPES, BOOSTER_ID } from "./coupling.js";
 
 // ===== 設定 =====
 const LOCO_ID = "senro:steam_locomotive";
@@ -8,7 +8,7 @@ const ITEM_ID = "senro:steam_locomotive";
 const THROTTLE_ID = "senro:throttle";
 const FUEL_ITEMS = { "minecraft:coal": 3600, "minecraft:charcoal": 3600 }; // 1個 = 3600tick (3分)
 const MAX_SPEED = 0.6; // ブロック/tick。通常トロッコ(0.4)の1.5倍
-const VANILLA_MAX_SPEED = 0.4; // バニラのトロッコをつないでいるときはこれ以上出ない
+const BOOSTED_MAX_SPEED = 0.8; // 補助機関車が編成にいるとき。通常トロッコの2倍
 const ACCEL = 0.05; // 1tickあたりの加速
 const BRAKE = 0.04; // 1tickあたりの減速
 const DIMENSIONS = ["overworld", "nether", "the_end"];
@@ -194,8 +194,70 @@ system.runInterval(() => {
         driveLoco(loco, tick);
       } catch {}
     }
+    // 補助機関車は自分では走らないが、向きはレールに合わせる
+    let boosters = [];
+    try {
+      boosters = world.getDimension(dimId).getEntities({ type: BOOSTER_ID });
+    } catch {}
+    for (const b of boosters) {
+      try {
+        const v = b.getVelocity();
+        updateFacing(b, v, Math.hypot(v.x, v.z));
+      } catch {}
+    }
   }
 }, 1);
+
+// ===== 車両の最高速度を切り替える =====
+// レールでの最高速度はエンティティ定義のコンポーネントグループで決まるので、
+// 編成に合わせてイベントで切り替える (バニラのトロッコも上書き定義に同じイベントがある)
+//   汽車のいない車両: 通常 / 汽車の編成: 1.5倍 / 補助機関車も入った編成: 2倍
+const P_SPEED = "senro:speed";
+
+function setSpeed(cart, level) {
+  if (cart.getDynamicProperty(P_SPEED) === level) return;
+  try {
+    cart.triggerEvent(level);
+    cart.setDynamicProperty(P_SPEED, level);
+  } catch {}
+}
+
+function speedLevelOf(cars) {
+  if (!cars.some((c) => c.typeId === LOCO_ID)) return "senro:speed_normal";
+  return cars.some((c) => c.typeId === BOOSTER_ID) ? "senro:speed_20" : "senro:speed_15";
+}
+
+function syncSpeed(cart) {
+  if (!cart.isValid || !CART_TYPES.has(cart.typeId)) return;
+  const cars = getTrain(cart).cars;
+  const level = speedLevelOf(cars);
+  for (const c of cars) setSpeed(c, level);
+}
+
+// 新しく出てきた・読み込まれた車両はすぐ設定する (設定前はレールの上を走れないため)
+world.afterEvents.entitySpawn.subscribe((ev) => system.run(() => syncSpeed(ev.entity)));
+world.afterEvents.entityLoad.subscribe((ev) => system.run(() => syncSpeed(ev.entity)));
+
+system.runInterval(() => {
+  const done = new Set();
+  for (const dimId of DIMENSIONS) {
+    let carts;
+    try {
+      carts = world.getDimension(dimId).getEntities({ families: ["minecart"] });
+    } catch {
+      continue;
+    }
+    for (const cart of carts) {
+      if (done.has(cart.id) || !CART_TYPES.has(cart.typeId)) continue;
+      const cars = getTrain(cart).cars;
+      const level = speedLevelOf(cars);
+      for (const c of cars) {
+        done.add(c.id);
+        setSpeed(c, level);
+      }
+    }
+  }
+}, 5);
 
 // 車両の編成にいる汽車 (なければ undefined)
 function findLoco(cart) {
@@ -289,7 +351,7 @@ function driveLoco(loco, tick) {
   loco.setDynamicProperty(P_BURN, burn - 1);
 
   // パワードレールと同じように、走っている向きへ全速まで押し続ける
-  const maxSpeed = train.every((c) => c.typeId === loco.typeId) ? MAX_SPEED : VANILLA_MAX_SPEED;
+  const maxSpeed = train.some((c) => c.typeId === BOOSTER_ID) ? BOOSTED_MAX_SPEED : MAX_SPEED;
   if (speed < maxSpeed) {
     const push = Math.min(ACCEL, maxSpeed - speed + 0.01);
     loco.applyImpulse({ x: dx * push, y: 0, z: dz * push });
@@ -369,14 +431,16 @@ function updateFacing(loco, vel, speed) {
   loco.setProperty("senro:yaw", wrapDeg(next));
 }
 
-// ===== 壊したときのドロップを「汽車」アイテムにする =====
-// 中身はバニラのトロッコ扱いなので、普通のトロッコを落とす。それを汽車に差し替える。
+// ===== 壊したときのドロップを「汽車」「補助機関車」アイテムにする =====
+// 中身はバニラのトロッコ扱いなので、普通のトロッコを落とす。それを差し替える。
+const DROP_ITEMS = { [LOCO_ID]: ITEM_ID, [BOOSTER_ID]: "senro:booster_locomotive" };
 const pendingDrops = [];
 
 world.beforeEvents.entityRemove.subscribe((ev) => {
   const e = ev.removedEntity;
-  if (e.typeId !== LOCO_ID) return;
+  if (!(e.typeId in DROP_ITEMS)) return;
   pendingDrops.push({
+    item: DROP_ITEMS[e.typeId],
     dim: e.dimension.id,
     x: e.location.x,
     y: e.location.y,
@@ -402,10 +466,11 @@ world.afterEvents.entitySpawn.subscribe((ev) => {
       Math.abs(p.z - l.z) < 2
   );
   if (idx < 0) return;
+  const item = pendingDrops[idx].item;
   pendingDrops.splice(idx, 1);
   const dim = ent.dimension;
   ent.remove();
-  dim.spawnItem(new ItemStack(ITEM_ID, 1), l);
+  dim.spawnItem(new ItemStack(item, 1), l);
 });
 
 system.runInterval(() => {

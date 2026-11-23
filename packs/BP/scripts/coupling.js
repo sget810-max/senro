@@ -4,10 +4,12 @@
 import { world, system } from "@minecraft/server";
 
 export const LOCO_ID = "senro:steam_locomotive";
+export const BOOSTER_ID = "senro:booster_locomotive";
 const COUPLER_ID = "senro:coupler";
 const ROD_ID = "senro:coupling_link";
 export const CART_TYPES = new Set([
   LOCO_ID,
+  BOOSTER_ID,
   "minecraft:minecart",
   "minecraft:chest_minecart",
   "minecraft:hopper_minecart",

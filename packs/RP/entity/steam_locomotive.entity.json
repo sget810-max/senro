@@ -10,16 +10,16 @@
         "cart": "textures/entity/minecart",
         "planks": "textures/blocks/planks_oak",
         "log": "textures/blocks/log_oak",
-        "furnace": "textures/entity/senro_furnace",
         "coal": "textures/blocks/coal_block",
+        "furnace": "textures/entity/senro_furnace",
         "lamp": "textures/blocks/redstone_lamp_on"
       },
       "geometry": {
         "cart": "geometry.senro_locomotive_cart",
         "planks": "geometry.senro_loco_planks",
         "log": "geometry.senro_loco_log",
-        "furnace": "geometry.senro_loco_furnace",
         "coal": "geometry.senro_loco_coal",
+        "furnace": "geometry.senro_loco_furnace",
         "lamp": "geometry.senro_loco_lamp"
       },
       "animations": {
@@ -31,12 +31,12 @@
         ]
       },
       "render_controllers": [
-        "controller.render.senro_loco_cart",
-        "controller.render.senro_loco_planks",
-        "controller.render.senro_loco_log",
-        "controller.render.senro_loco_furnace",
-        "controller.render.senro_loco_coal",
-        "controller.render.senro_loco_lamp"
+        "controller.render.senro_part_cart",
+        "controller.render.senro_part_planks",
+        "controller.render.senro_part_log",
+        "controller.render.senro_part_coal",
+        "controller.render.senro_part_furnace",
+        "controller.render.senro_part_lamp"
       ]
     }
   }

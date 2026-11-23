@@ -10,6 +10,9 @@
     },
     "senro_coupler": {
       "textures": "textures/items/coupler"
+    },
+    "senro_booster_locomotive": {
+      "textures": "textures/items/booster_locomotive"
     }
   }
 }

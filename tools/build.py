@@ -16,13 +16,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BP = os.path.join(ROOT, "packs", "BP")
 RP = os.path.join(ROOT, "packs", "RP")
 
-# 使うバニラのテクスチャ (キー → パス)
+# 使うテクスチャ (キー → パス)。furnace 以外はバニラのものをそのまま使う
 TEXTURES = {
     "planks": "textures/blocks/planks_oak",
     "log": "textures/blocks/log_oak",
     "furnace": "textures/entity/senro_furnace",  # 自作 (tools/src のかまどを縮めて作る)
     "coal": "textures/blocks/coal_block",
     "lamp": "textures/blocks/redstone_lamp_on",
+    "iron": "textures/blocks/iron_block",
+    "gold": "textures/blocks/gold_block",
 }
 
 
@@ -54,6 +56,29 @@ PARTS = {
     # 前半分: 小さめのかまど (幅12・高さ12・長さ8)。トロッコの箱の口にはめて縁の高さに載せる
     "furnace": [box(2, 10, 10.5, 22.5, -6, 6)],
     "lamp": [box(10, 11.5, 17, 20, -1.5, 1.5)],  # 前照灯
+}
+
+# 補助機関車: 運転台なし。トロッコの上に鉄のボイラーを横に寝かせた、背の低い機関車
+BOOSTER_PARTS = {
+    "planks": [box(-8, 8, 9.5, 10.5, -6, 6)],  # トロッコの箱にはめた床
+    "iron": [box(-8, 8, 10.5, 19, -4.5, 4.5)],  # ボイラー
+    "coal": [
+        box(-5, -4, 10.4, 19.1, -4.6, 4.6),  # ボイラーの帯
+        box(3, 4, 10.4, 19.1, -4.6, 4.6),
+        box(4.5, 7, 19, 25, -1.25, 1.25),  # 煙突
+        box(4, 7.5, 25, 26.5, -1.75, 1.75),
+    ],
+    "gold": [box(-2, 1, 19, 21, -1.5, 1.5)],  # 蒸気ドーム
+    "lamp": [
+        box(8, 9.5, 13, 15.5, -1.25, 1.25),  # 前後のランプ
+        box(-9.5, -8, 13, 15.5, -1.25, 1.25),
+    ],
+}
+
+# 乗り物ごとの部品一覧 (エンティティ名 → (ジオメトリ名の接頭辞, 部品))
+VEHICLES = {
+    "steam_locomotive": ("loco", PARTS),
+    "booster_locomotive": ("booster", BOOSTER_PARTS),
 }
 
 
@@ -147,19 +172,21 @@ def geometry_file(identifier, tex_w, tex_h, bones):
     }
 
 
-def make_part_geometries(path):
-    geos = []
-    for key, boxes in PARTS.items():
-        size = 32 if key == "furnace" else 16
-        make = furnace_cube if key == "furnace" else to_cube
-        geo = geometry_file(
-            f"geometry.senro_loco_{key}", size, size,
-            # 向きのアニメーションは "body" の骨を回す
-            [{"name": "body", "pivot": [0, 0, 0], "cubes": [make(b) for b in boxes]}],
-        )
-        geos += geo["minecraft:geometry"]
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump({"format_version": "1.12.0", "minecraft:geometry": geos}, f, indent=2)
+def make_part_geometries():
+    for name, (prefix, parts) in VEHICLES.items():
+        geos = []
+        for key, boxes in parts.items():
+            size = 32 if key == "furnace" else 16
+            make = furnace_cube if key == "furnace" else to_cube
+            geo = geometry_file(
+                f"geometry.senro_{prefix}_{key}", size, size,
+                # 向きのアニメーションは "body" の骨を回す
+                [{"name": "body", "pivot": [0, 0, 0], "cubes": [make(b) for b in boxes]}],
+            )
+            geos += geo["minecraft:geometry"]
+        path = os.path.join(RP, "models", "entity", f"{name}.geo.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"format_version": "1.12.0", "minecraft:geometry": geos}, f, indent=2)
 
 
 # ---------- 下回り: バニラのトロッコ (geometry.minecart と同じ形) ----------
@@ -188,42 +215,45 @@ def make_cart_geometry(path):
         json.dump(geometry_file("geometry.senro_locomotive_cart", 64, 32, bones), f, indent=2)
 
 
+def part_controller(key):
+    return {
+        "geometry": f"Geometry.{key}",
+        "materials": [{"*": "Material.default"}],
+        "textures": [f"Texture.{key}"],
+    }
+
+
 def make_client_files():
-    textures = {"cart": "textures/entity/minecart"}
-    geometry = {"cart": "geometry.senro_locomotive_cart"}
-    controllers = {
-        "controller.render.senro_loco_cart": {
-            "geometry": "Geometry.cart",
-            "materials": [{"*": "Material.default"}],
-            "textures": ["Texture.cart"],
-        }
-    }
-    for key, path in TEXTURES.items():
-        textures[key] = path
-        geometry[key] = f"geometry.senro_loco_{key}"
-        controllers[f"controller.render.senro_loco_{key}"] = {
-            "geometry": f"Geometry.{key}",
-            "materials": [{"*": "Material.default"}],
-            "textures": [f"Texture.{key}"],
-        }
-    entity = {
-        "format_version": "1.10.0",
-        "minecraft:client_entity": {
-            "description": {
-                "identifier": "senro:steam_locomotive",
-                "materials": {"default": "entity_alphatest"},
-                "textures": textures,
-                "geometry": geometry,
-                "animations": {"yaw": "animation.senro_steam_locomotive.yaw"},
-                "scripts": {"animate": ["yaw"]},
-                "render_controllers": list(controllers),
-            }
-        },
-    }
-    with open(os.path.join(RP, "entity", "steam_locomotive.entity.json"), "w", encoding="utf-8") as f:
-        json.dump(entity, f, indent=2, ensure_ascii=False)
+    # レンダーコントローラーは部品の種類ごとに1つ作り、乗り物どうしで共有する
+    controllers = {"controller.render.senro_part_cart": part_controller("cart")}
+    for key in TEXTURES:
+        controllers[f"controller.render.senro_part_{key}"] = part_controller(key)
     with open(os.path.join(RP, "render_controllers", "senro_locomotive.render_controllers.json"), "w", encoding="utf-8") as f:
         json.dump({"format_version": "1.8.0", "render_controllers": controllers}, f, indent=2)
+
+    for name, (prefix, parts) in VEHICLES.items():
+        textures = {"cart": "textures/entity/minecart"}
+        geometry = {"cart": "geometry.senro_locomotive_cart"}
+        for key in parts:
+            textures[key] = TEXTURES[key]
+            geometry[key] = f"geometry.senro_{prefix}_{key}"
+        entity = {
+            "format_version": "1.10.0",
+            "minecraft:client_entity": {
+                "description": {
+                    "identifier": f"senro:{name}",
+                    "materials": {"default": "entity_alphatest"},
+                    "textures": textures,
+                    "geometry": geometry,
+                    "animations": {"yaw": "animation.senro_steam_locomotive.yaw"},
+                    "scripts": {"animate": ["yaw"]},
+                    "render_controllers": ["controller.render.senro_part_cart"]
+                    + [f"controller.render.senro_part_{key}" for key in parts],
+                }
+            },
+        }
+        with open(os.path.join(RP, "entity", f"{name}.entity.json"), "w", encoding="utf-8") as f:
+            json.dump(entity, f, indent=2, ensure_ascii=False)
 
 
 # ---------- アイテムアイコン (16x16 ドット絵、右が前) ----------
@@ -236,6 +266,8 @@ COLORS = {
     "f": (230, 140, 40),  # 火
     "C": (30, 30, 32),  # 石炭
     "Y": (250, 214, 120),  # ランプ
+    "S": (220, 220, 224),  # 鉄ブロック
+    "G": (240, 200, 60),  # 金
 }
 ICON = [
     "..........CCCC..",
@@ -271,6 +303,25 @@ LEVER_ICON = [
     "...DPPPPPPD.....",
     "...DDDDDDDD.....",
     "................",
+    "................",
+]
+
+BOOSTER_ICON = [
+    "................",
+    "................",
+    "................",
+    ".........CCCC...",
+    "..........CC....",
+    "......GG..CC....",
+    "..SSCSSSSSCSSS..",
+    ".YSSCSSSSSCSSSY.",
+    "..SSCSSSSSCSSS..",
+    "..SSCSSSSSCSSS..",
+    "DDDDDDDDDDDDDDDD",
+    ".IIIIIIIIIIIIII.",
+    ".IIIIIIIIIIIIII.",
+    ".IIIIIIIIIIIIII.",
+    "..DD........DD..",
     "................",
 ]
 
@@ -315,12 +366,13 @@ def zip_dir(zf, src, arc_prefix):
 def main():
     os.makedirs(os.path.join(RP, "textures", "entity"), exist_ok=True)
     make_furnace_texture(os.path.join(RP, "textures", "entity", "senro_furnace.png"))
-    make_part_geometries(os.path.join(RP, "models", "entity", "steam_locomotive.geo.json"))
+    make_part_geometries()
     make_cart_geometry(os.path.join(RP, "models", "entity", "steam_locomotive_cart.geo.json"))
     make_client_files()
     make_icon(os.path.join(RP, "textures", "items", "steam_locomotive.png"))
     make_icon(os.path.join(RP, "textures", "items", "throttle.png"), pattern=LEVER_ICON)
     make_icon(os.path.join(RP, "textures", "items", "coupler.png"), pattern=COUPLER_ICON)
+    make_icon(os.path.join(RP, "textures", "items", "booster_locomotive.png"), pattern=BOOSTER_ICON)
     make_icon(os.path.join(RP, "pack_icon.png"), scale=8)
     make_icon(os.path.join(BP, "pack_icon.png"), scale=8)
 
