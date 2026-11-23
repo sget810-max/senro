@@ -10,8 +10,8 @@ const MAX_SPEED = 0.6; // ブロック/tick。通常トロッコ(0.4)の1.5倍
 const ACCEL = 0.05; // 1tickあたりの加速
 const BRAKE = 0.04; // 1tickあたりの減速
 const DIMENSIONS = ["overworld", "nether", "the_end"];
-// 汽車の前後が逆に表示される場合はここを true/false 入れ替える
-const FLIP_INVERT = false;
+// 汽車の見た目の向きがずれる場合の補正角度 (前後逆なら 180、横向きなら 90)
+const YAW_OFFSET = 0;
 
 const P_BURN = "senro:burn"; // 今燃えている石炭の残りtick
 const P_RUN = "senro:running"; // 発車中かどうか
@@ -235,16 +235,55 @@ function driveLoco(loco, tick) {
   }
 }
 
-// 進行方向に合わせて汽車の前後を向ける
+// ===== 汽車の向き (トロッコと同じようにレールに沿って回る) =====
+function wrapDeg(a) {
+  a = ((a + 180) % 360 + 360) % 360 - 180;
+  return a;
+}
+
+// a と a+180 のうち、今の向き cur に近い方
+function nearerAxis(cur, a) {
+  const b = wrapDeg(a + 180);
+  return Math.abs(wrapDeg(a - cur)) <= Math.abs(wrapDeg(b - cur)) ? a : b;
+}
+
+// 足元のレールの向き (直線レールのみ)。南北 = 0、東西 = 90、それ以外 undefined
+function railAxis(loco) {
+  const l = loco.location;
+  for (const dy of [0, -1]) {
+    let block;
+    try {
+      block = loco.dimension.getBlock({ x: Math.floor(l.x), y: Math.floor(l.y) + dy, z: Math.floor(l.z) });
+    } catch {
+      return undefined;
+    }
+    if (!block || !block.typeId.includes("rail")) continue;
+    const dir = block.permutation.getState("rail_direction");
+    if (dir === 0 || dir === 4 || dir === 5) return 0;
+    if (dir === 1 || dir === 2 || dir === 3) return 90;
+    return undefined;
+  }
+  return undefined;
+}
+
 function updateFacing(loco, vel, speed) {
-  if (speed < 0.02) return;
-  const yaw = (loco.getRotation().y * Math.PI) / 180;
-  const fx = -Math.sin(yaw);
-  const fz = Math.cos(yaw);
-  const dot = (vel.x * fx + vel.z * fz) / speed;
-  if (Math.abs(dot) < 0.3) return;
-  const flip = (dot < 0) !== FLIP_INVERT;
-  if (loco.getProperty("senro:flip") !== flip) loco.setProperty("senro:flip", flip);
+  const cur = loco.getProperty("senro:yaw") ?? 0;
+  let target;
+  if (speed > 0.02) {
+    // 進行方向 (マイクラの向き: 南=0, 西=90, 北=180, 東=-90)
+    const moveYaw = wrapDeg((Math.atan2(-vel.x, vel.z) * 180) / Math.PI + YAW_OFFSET);
+    // 発車中は煙突を進行方向へ。押されて動いているだけなら前後はそのまま
+    target = loco.getDynamicProperty(P_RUN) === true ? moveYaw : nearerAxis(cur, moveYaw);
+  } else {
+    const axis = railAxis(loco);
+    if (axis === undefined) return;
+    target = nearerAxis(cur, wrapDeg(axis + YAW_OFFSET));
+  }
+  const diff = wrapDeg(target - cur);
+  if (Math.abs(diff) < 0.5) return;
+  // なめらかに回す
+  const next = Math.abs(diff) < 3 ? target : cur + diff * 0.5;
+  loco.setProperty("senro:yaw", wrapDeg(next));
 }
 
 // ===== 壊したときのドロップを「汽車」アイテムにする =====

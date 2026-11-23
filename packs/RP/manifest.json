@@ -1,13 +1,13 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Senro 汽車 RP v1.1.1",
+    "name": "Senro 汽車 RP v1.2.0",
     "description": "汽車の見た目",
     "uuid": "4ff1d989-372a-49f4-a697-f8428ea593e9",
     "version": [
       1,
-      1,
-      1
+      2,
+      0
     ],
     "min_engine_version": [
       1,
@@ -21,8 +21,8 @@
       "uuid": "eb81389f-87f6-4c09-9508-8bc183fa8eab",
       "version": [
         1,
-        1,
-        1
+        2,
+        0
       ]
     }
   ],
@@ -31,8 +31,8 @@
       "uuid": "b84aeaa2-ae79-4696-925a-dd908b3a0e52",
       "version": [
         1,
-        1,
-        1
+        2,
+        0
       ]
     }
   ]

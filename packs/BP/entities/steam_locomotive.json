@@ -7,9 +7,13 @@
       "is_spawnable": false,
       "is_summonable": true,
       "properties": {
-        "senro:flip": {
-          "type": "bool",
-          "default": false,
+        "senro:yaw": {
+          "type": "float",
+          "range": [
+            -180.0,
+            180.0
+          ],
+          "default": 0.0,
           "client_sync": true
         }
       }

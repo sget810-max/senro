@@ -16,11 +16,11 @@
         "controller.render.default"
       ],
       "animations": {
-        "flip": "animation.senro_steam_locomotive.flip"
+        "yaw": "animation.senro_steam_locomotive.yaw"
       },
       "scripts": {
         "animate": [
-          "flip"
+          "yaw"
         ]
       }
     }
